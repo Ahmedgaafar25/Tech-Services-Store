@@ -102,7 +102,7 @@
             }
         }
 
-        // --- البيانات الافتراضية ---
+        // --- البيانات الافتراضية (الأسعار محدثة) ---
         const DEFAULT_PRODUCTS = [
             // --- الباقات (Bundles) ---
             {
@@ -119,7 +119,7 @@
                 features: ["5 رسائل InMail شهرياً للتواصل المباشر", "معرفة من زار ملفك الشخصي بالتفصيل", "وصول كامل لكورسات LinkedIn Learning", "شارة Premium الذهبية", "رؤى تنافسية للمتقدمين على الوظائف"],
                 compatibility: ["متصفح الويب", "iOS", "Android"],
                 price: "699 ج.م", originalPrice: "2500 ج.م",
-                imageUrl: "https://cdn-icons-png.flaticon.com/512/3536/3536505.png"
+                imageUrl: "https://cdn-icons-png.flaticon.com/512/3536/3536505.png" // Gold LinkedIn Icon
             },
             {
                 id: "p2", type: "bundle",
@@ -171,7 +171,7 @@
                 imageUrl: "https://picsarrtapk.com/wp-content/uploads/2025/06/Untitled-design-2.webp"
             },
 
-            // --- البرامج الفردية (Single Apps) ---
+            // --- البرامج الفردية (Single Apps - ضمن الباقة) ---
             {
                 id: "s1", type: "single",
                 name: "Adobe Photoshop", category: "Design", duration: "سنة كاملة",
@@ -324,6 +324,7 @@
         const ProductDetailsPage = ({ product, onBack, onOrder }) => {
             const [imageError, setImageError] = useState(false);
 
+            // Fallback content if features/compatibility are missing in old data
             const features = product.features || ["نسخة أصلية 100%", "ضمان كامل المدة", "دعم فني مستمر", "تحديثات تلقائية"];
             const compatibility = product.compatibility || ["Windows", "Mac", "iOS", "Android"];
 
@@ -1084,9 +1085,7 @@
                                     <MessageCircle size={18} />
                                     تواصل معنا
                                 </button>
-                                <button onClick={() => setShowLoginModal(true)} className="text-slate-300 hover:text-slate-600 transition p-2" title="إعدادات المسؤول">
-                                    <Settings size={20} />
-                                </button>
+                                {/* تم إخفاء زر الإعدادات الظاهر كما طلبت */}
                             </div>
                         </div>
                     </nav>
@@ -1106,9 +1105,9 @@
                                     <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-sm font-bold mb-6 border border-blue-100">
                                         🚀 أقل سعر وأفضل جودة
                                     </span>
-                                    <h1 className="text-4xl md:text-6xl font-black mb-6 leading-[1.15] text-slate-900">
+                                    <h1 className="text-4xl md:text-6xl font-black mb-6 leading-relaxed text-slate-900">
                                         ارتقِ بإنتاجيتك مع <br className="hidden md:block"/>
-                                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 inline-block mt-2 md:mt-4">
+                                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 inline-block mt-2 md:mt-4 py-2">
                                         أفضل الخدمات الرقمية
                                         </span>
                                     </h1>
