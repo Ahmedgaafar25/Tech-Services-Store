@@ -32,7 +32,19 @@
         }
     }
     </script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Fix: Use a specific stable version of Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
+    <!-- Fix: Configure Babel explicitly to handle modules correctly -->
+    <script>
+        window.Babel = {
+            presets: [
+                ['env', { modules: false, targets: { browsers: ["> 1%", "not dead"] } }],
+                'react'
+            ]
+        };
+    </script>
     
     <style>
         .no-scrollbar::-webkit-scrollbar {
@@ -125,7 +137,7 @@
                 id: "p2", type: "bundle",
                 name: "Google AI Premium", category: "AI", duration: "سنة كاملة",
                 description: "أقوى ذكاء اصطناعي Gemini Advanced + 2 تيرا تخزين Google One.",
-                price: "899 ج.م", originalPrice: "1500 ج.م",
+                price: "799 ج.م", originalPrice: "1500 ج.م",
                 imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/1200px-Google_Gemini_logo.svg.png"
             },
             {
@@ -564,6 +576,7 @@
             useEffect(() => {
                 if (isFirebaseConfigured && !isOfflineMode) {
                     if (!user || !db) return;
+                    // Real Firestore Sync
                     const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'products');
                     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config');
 
@@ -573,9 +586,16 @@
                         setLoading(false);
                     }, (error) => {
                         console.error("Error fetching products:", error);
+                        // If fetching fails (e.g. rules), fallback to local
                         setIsOfflineMode(true);
                         setLoading(false);
-                        if (products.length === 0) setProducts(DEFAULT_PRODUCTS);
+                        // Load from LocalStorage if available in fallback
+                        const savedProducts = localStorage.getItem('products');
+                        if (savedProducts) {
+                             setProducts(JSON.parse(savedProducts));
+                        } else {
+                             setProducts(DEFAULT_PRODUCTS);
+                        }
                     });
 
                     const unsubSettings = onSnapshot(settingsRef, (docSnap) => {
@@ -590,12 +610,30 @@
                         unsubSettings();
                     };
                 } else {
-                    if (products.length === 0) {
+                    // Demo/Offline Mode: Local Storage
+                    const savedProducts = localStorage.getItem('products');
+                    const savedWhatsapp = localStorage.getItem('whatsappNumber');
+
+                    if (savedProducts) {
+                        setProducts(JSON.parse(savedProducts));
+                    } else {
                         setProducts(DEFAULT_PRODUCTS);
+                    }
+
+                    if (savedWhatsapp) {
+                        setWhatsappNumber(savedWhatsapp);
                     }
                     setLoading(false);
                 }
             }, [user, isOfflineMode]);
+
+            // Sync Local Storage in Offline Mode
+            useEffect(() => {
+                if (isOfflineMode) {
+                    localStorage.setItem('products', JSON.stringify(products));
+                    localStorage.setItem('whatsappNumber', whatsappNumber);
+                }
+            }, [products, whatsappNumber, isOfflineMode]);
 
             // --- Handlers ---
 
@@ -619,13 +657,16 @@
                         await setDoc(settingsRef, { whatsapp: whatsappNumber }, { merge: true });
                         showToast('تم تحديث رقم الواتساب بنجاح');
                     } catch (error) {
+                        console.error("Error saving settings:", error);
                         showToast('حدث خطأ أثناء الحفظ', 'error');
                     }
                 } else {
-                    showToast('تم تحديث الرقم (وضع التجربة - لن يتم الحفظ)');
+                    // Offline Mode: Saved via useEffect
+                    showToast('تم تحديث الرقم (حفظ محلي)');
                 }
             };
 
+            // Image Update Logic
             const triggerUpdateImages = () => {
                 setConfirmMessage('سيتم محاولة تحديث صور المنتجات الحالية. هل تريد المتابعة؟');
                 setConfirmAction(() => executeUpdateImages);
@@ -635,6 +676,7 @@
             const executeUpdateImages = async () => {
                 setLoading(true);
                 setShowConfirmModal(false);
+                
                 try {
                     if (!isOfflineMode) {
                         const updates = products.map(p => {
@@ -642,7 +684,7 @@
                             const defaultMatch = DEFAULT_PRODUCTS.find(d => 
                                 d.name.toLowerCase().trim().includes(pName) || pName.includes(d.name.toLowerCase().trim())
                             );
-                            if (defaultMatch) {
+                            if (defaultMatch && defaultMatch.imageUrl) {
                                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id);
                                 return setDoc(docRef, { 
                                     imageUrl: defaultMatch.imageUrl,
@@ -650,31 +692,43 @@
                                     compatibility: defaultMatch.compatibility,
                                     type: defaultMatch.type || 'bundle',
                                     description: defaultMatch.description,
-                                    price: defaultMatch.price, // update price
-                                    originalPrice: defaultMatch.originalPrice // update original price
+                                    price: defaultMatch.price,
+                                    originalPrice: defaultMatch.originalPrice
                                 }, { merge: true });
                             }
                             return Promise.resolve();
                         });
                         await Promise.all(updates);
                     } else {
+                        // Offline Mode Update
                         const updatedProducts = products.map(p => {
                             const pName = p.name.toLowerCase().trim();
                             const defaultMatch = DEFAULT_PRODUCTS.find(d => 
                                 d.name.toLowerCase().trim().includes(pName) || pName.includes(d.name.toLowerCase().trim())
                             );
-                            return defaultMatch ? { ...p, imageUrl: defaultMatch.imageUrl, features: defaultMatch.features, compatibility: defaultMatch.compatibility, type: defaultMatch.type, description: defaultMatch.description, price: defaultMatch.price, originalPrice: defaultMatch.originalPrice } : p;
+                            return defaultMatch ? { 
+                                ...p, 
+                                imageUrl: defaultMatch.imageUrl,
+                                features: defaultMatch.features,
+                                compatibility: defaultMatch.compatibility,
+                                type: defaultMatch.type,
+                                description: defaultMatch.description,
+                                price: defaultMatch.price,
+                                originalPrice: defaultMatch.originalPrice
+                            } : p;
                         });
                         setProducts(updatedProducts);
                     }
                     showToast('تم تحديث البيانات بنجاح');
                 } catch (error) {
+                    console.error(error);
                     showToast('حدث خطأ أثناء التحديث', 'error');
                 } finally {
                     setLoading(false);
                 }
             };
 
+            // Delete All Logic
             const triggerDeleteAll = () => {
                 setConfirmMessage('تحذير: سيتم حذف جميع المنتجات! هذه العملية لا يمكن التراجع عنها.');
                 setConfirmAction(() => executeDeleteAll);
@@ -684,21 +738,25 @@
             const executeDeleteAll = async () => {
                 setShowConfirmModal(false);
                 setLoading(true);
+                
                 try {
                     if (!isOfflineMode) {
                         const deletePromises = products.map(p => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id)));
                         await Promise.all(deletePromises);
                     } else {
                         setProducts([]);
+                        localStorage.removeItem('products'); // Clear local storage
                     }
                     showToast('تم حذف جميع المنتجات');
                 } catch (error) {
+                    console.error(error);
                     showToast('حدث خطأ أثناء الحذف', 'error');
                 } finally {
                     setLoading(false);
                 }
             };
 
+            // Seed Data Logic
             const handleSeedData = async () => {
                 setLoading(true);
                 try {
@@ -708,11 +766,13 @@
                             await addDoc(productsRef, prod);
                         }
                     } else {
+                        // Generate random IDs for offline mode
                         const demoProds = DEFAULT_PRODUCTS.map(p => ({...p, id: Math.random().toString(36).substr(2, 9)}));
                         setProducts(demoProds);
                     }
                     showToast("تم استعادة جميع المنتجات بنجاح!");
                 } catch (err) {
+                    console.error(err);
                     showToast("حدث خطأ أثناء الاستعادة", 'error');
                 } finally {
                     setLoading(false);
@@ -721,6 +781,7 @@
 
             const handleProductSubmit = async (e) => {
                 e.preventDefault();
+                
                 try {
                     if (!isOfflineMode) {
                         const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'products');
@@ -733,19 +794,21 @@
                             showToast('تم إضافة المنتج بنجاح');
                         }
                     } else {
+                        // Offline Mode
                         if (editingProduct) {
                             setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
-                            showToast('تم تعديل المنتج (وضع التجربة)');
+                            showToast('تم تعديل المنتج (حفظ محلي)');
                         } else {
                             const newProd = { ...formData, id: Math.random().toString(36).substr(2, 9) };
                             setProducts(prev => [...prev, newProd]);
-                            showToast('تم إضافة المنتج (وضع التجربة)');
+                            showToast('تم إضافة المنتج (حفظ محلي)');
                         }
                     }
                     setIsEditing(false);
                     setEditingProduct(null);
                     setFormData({ name: '', category: '', duration: '', price: '', originalPrice: '', description: '', imageUrl: '', type: 'bundle' });
                 } catch (error) {
+                    console.error("Error:", error);
                     showToast('حدث خطأ', 'error');
                 }
             };
@@ -762,6 +825,7 @@
                         }
                         showToast('تم حذف المنتج');
                     } catch (error) {
+                        console.error(error);
                         showToast('حدث خطأ أثناء الحذف', 'error');
                     }
                     setShowConfirmModal(false);
@@ -1219,4 +1283,5 @@
     </script>
 </body>
 </html>
+
 
