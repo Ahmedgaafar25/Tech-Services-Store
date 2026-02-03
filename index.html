@@ -33,10 +33,9 @@
     }
     </script>
     
-    <!-- Fix: Use a specific stable version of Babel to avoid "targets" error -->
+    <!-- Fix: Use a specific stable version of Babel -->
     <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
     
-    <!-- Fix: Configure Babel explicitly -->
     <script>
         window.Babel = {
             presets: ['env', 'react']
@@ -111,7 +110,7 @@
             }
         }
 
-        // --- البيانات الافتراضية (الأسعار محدثة حسب الطلب) ---
+        // --- البيانات الافتراضية (الأسعار محدثة) ---
         const DEFAULT_PRODUCTS = [
             // --- الباقات (Bundles) ---
             {
@@ -180,7 +179,7 @@
                 imageUrl: "https://picsarrtapk.com/wp-content/uploads/2025/06/Untitled-design-2.webp"
             },
 
-            // --- البرامج الفردية (Single Apps - ضمن الباقة) ---
+            // --- البرامج الفردية (Single Apps) ---
             {
                 id: "s1", type: "single",
                 name: "Adobe Photoshop", category: "Design", duration: "سنة كاملة",
@@ -571,6 +570,11 @@
                 window.location.hash = '';
             };
 
+            // Fix for ReferenceError: handleCloseProduct
+            const handleCloseProduct = () => {
+                window.location.hash = '';
+            };
+
             useEffect(() => {
                 if (isFirebaseConfigured) {
                     const initAuth = async () => {
@@ -615,7 +619,7 @@
                         console.error("Error fetching products:", error);
                         setIsOfflineMode(true);
                         setLoading(false);
-                        const savedProducts = localStorage.getItem('products');
+                        const savedProducts = localStorage.getItem('tech_store_products_v2');
                         if (savedProducts) {
                              setProducts(JSON.parse(savedProducts));
                         } else {
@@ -635,7 +639,7 @@
                         unsubSettings();
                     };
                 } else {
-                    const savedProducts = localStorage.getItem('products');
+                    const savedProducts = localStorage.getItem('tech_store_products_v2');
                     const savedWhatsapp = localStorage.getItem('whatsappNumber');
 
                     if (savedProducts) {
@@ -653,7 +657,7 @@
 
             useEffect(() => {
                 if (isOfflineMode) {
-                    localStorage.setItem('products', JSON.stringify(products));
+                    localStorage.setItem('tech_store_products_v2', JSON.stringify(products));
                     localStorage.setItem('whatsappNumber', whatsappNumber);
                 }
             }, [products, whatsappNumber, isOfflineMode]);
@@ -760,7 +764,7 @@
                         await Promise.all(deletePromises);
                     } else {
                         setProducts([]);
-                        localStorage.removeItem('products');
+                        localStorage.removeItem('tech_store_products_v2'); // Clean new key
                     }
                     showToast('تم حذف جميع المنتجات');
                 } catch (error) {
@@ -1005,6 +1009,7 @@
                             </section>
                         </div>
 
+                        {/* Modal */}
                         {isEditing && (
                             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                                 <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
