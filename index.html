@@ -179,7 +179,7 @@
                 imageUrl: "https://picsarrtapk.com/wp-content/uploads/2025/06/Untitled-design-2.webp"
             },
 
-            // --- البرامج الفردية (Single Apps) ---
+            // --- البرامج الفردية (Single Apps - ضمن الباقة) ---
             {
                 id: "s1", type: "single",
                 name: "Adobe Photoshop", category: "Design", duration: "سنة كاملة",
@@ -537,18 +537,30 @@
                 setTimeout(() => setNotification(null), 5000);
             };
 
+            // Helper to create URL friendly slugs
+            const createSlug = (name) => {
+                return name
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
+                    .replace(/^-+|-+$/g, '');   // Remove leading/trailing hyphens
+            };
+
             // Enhanced Routing Logic
             const handleHashChange = () => {
                 const hash = window.location.hash;
-                if (hash.startsWith('#/product/')) {
-                    const productId = hash.split('/')[2];
+                // Support format #/slug/id
+                if (hash.includes('/') && hash.split('/').length >= 2) {
+                    const parts = hash.split('/');
+                    const productId = parts[parts.length - 1]; // Get last segment as ID
+                    
                     const foundProduct = products.find(p => p.id === productId) || DEFAULT_PRODUCTS.find(p => p.id === productId);
                     
                     if (foundProduct) {
                         setSelectedProduct(foundProduct);
                     } else {
                         setSelectedProduct(null);
-                        window.location.hash = ''; 
+                        if (hash !== '') window.location.hash = ''; 
                     }
                 } else {
                     setSelectedProduct(null);
@@ -556,14 +568,16 @@
                 window.scrollTo(0, 0);
             };
 
+            // Listen for hash changes
             useEffect(() => {
                 handleHashChange(); // Check on initial load
                 window.addEventListener('hashchange', handleHashChange);
                 return () => window.removeEventListener('hashchange', handleHashChange);
-            }, [products]);
+            }, [products]); // Re-run if products list updates (e.g. from Firebase)
 
             const openProductLink = (product) => {
-                window.location.hash = `#/product/${product.id}`;
+                const slug = createSlug(product.name);
+                window.location.hash = `#/${slug}/${product.id}`;
             };
 
             const navigateHome = () => {
