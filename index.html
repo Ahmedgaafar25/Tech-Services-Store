@@ -33,16 +33,13 @@
     }
     </script>
     
-    <!-- Fix: Use a specific stable version of Babel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <!-- Fix: Use a specific stable version of Babel to avoid "targets" error -->
+    <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
     
-    <!-- Fix: Configure Babel explicitly to handle modules correctly -->
+    <!-- Fix: Configure Babel explicitly -->
     <script>
         window.Babel = {
-            presets: [
-                ['env', { modules: false, targets: { browsers: ["> 1%", "not dead"] } }],
-                'react'
-            ]
+            presets: ['env', 'react']
         };
     </script>
     
@@ -114,7 +111,7 @@
             }
         }
 
-        // --- البيانات الافتراضية (الأسعار محدثة) ---
+        // --- البيانات الافتراضية (الأسعار محدثة حسب الطلب) ---
         const DEFAULT_PRODUCTS = [
             // --- الباقات (Bundles) ---
             {
@@ -131,7 +128,7 @@
                 features: ["5 رسائل InMail شهرياً للتواصل المباشر", "معرفة من زار ملفك الشخصي بالتفصيل", "وصول كامل لكورسات LinkedIn Learning", "شارة Premium الذهبية", "رؤى تنافسية للمتقدمين على الوظائف"],
                 compatibility: ["متصفح الويب", "iOS", "Android"],
                 price: "899 ج.م", originalPrice: "5000 ج.م",
-                imageUrl: "https://cdn-icons-png.flaticon.com/512/3536/3536505.png" // Gold LinkedIn Icon
+                imageUrl: "https://cdn-icons-png.flaticon.com/512/3536/3536505.png"
             },
             {
                 id: "p2", type: "bundle",
@@ -340,6 +337,10 @@
             const features = product.features || ["نسخة أصلية 100%", "ضمان كامل المدة", "دعم فني مستمر", "تحديثات تلقائية"];
             const compatibility = product.compatibility || ["Windows", "Mac", "iOS", "Android"];
 
+            useEffect(() => {
+                window.scrollTo(0, 0);
+            }, []);
+
             return (
                 <div className="min-h-screen bg-slate-50 fade-in pb-20">
                     {/* Header */}
@@ -506,52 +507,81 @@
             </div>
         );
 
-        // --- التطبيق الرئيسي ---
         function App() {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
             const [isAdmin, setIsAdmin] = useState(false);
             const [isOfflineMode, setIsOfflineMode] = useState(false);
             
-            // UI State
             const [showLoginModal, setShowLoginModal] = useState(false);
             const [loginCode, setLoginCode] = useState('');
             const [loginError, setLoginError] = useState('');
             const [notification, setNotification] = useState(null);
             
-            // View State
             const [selectedProduct, setSelectedProduct] = useState(null);
             
-            // Custom Confirmation Modal State
             const [showConfirmModal, setShowConfirmModal] = useState(false);
             const [confirmMessage, setConfirmMessage] = useState('');
             const [confirmAction, setConfirmAction] = useState(null);
 
-            // Data State
             const [products, setProducts] = useState([]);
             const [whatsappNumber, setWhatsappNumber] = useState('13155576166');
             
-            // Edit/Add State
             const [isEditing, setIsEditing] = useState(false);
             const [editingProduct, setEditingProduct] = useState(null);
             const [formData, setFormData] = useState({
                 name: '', category: '', duration: '', price: '', originalPrice: '', description: '', imageUrl: '', type: 'bundle'
             });
 
-            // Notification Helper
             const showToast = (message, type = 'success') => {
                 setNotification({ message, type });
                 setTimeout(() => setNotification(null), 5000);
             };
 
-            // Authentication & Initial Load
+            // Enhanced Routing Logic
+            const handleHashChange = () => {
+                const hash = window.location.hash;
+                if (hash.startsWith('#/product/')) {
+                    const productId = hash.split('/')[2];
+                    const foundProduct = products.find(p => p.id === productId) || DEFAULT_PRODUCTS.find(p => p.id === productId);
+                    
+                    if (foundProduct) {
+                        setSelectedProduct(foundProduct);
+                    } else {
+                        setSelectedProduct(null);
+                        window.location.hash = ''; 
+                    }
+                } else {
+                    setSelectedProduct(null);
+                }
+                window.scrollTo(0, 0);
+            };
+
+            useEffect(() => {
+                handleHashChange(); // Check on initial load
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, [products]);
+
+            const openProductLink = (product) => {
+                window.location.hash = `#/product/${product.id}`;
+            };
+
+            const navigateHome = () => {
+                window.location.hash = '';
+            };
+
             useEffect(() => {
                 if (isFirebaseConfigured) {
                     const initAuth = async () => {
                         try {
                             await signInAnonymously(auth);
                         } catch (error) {
-                            // Fallback to offline mode
+                            if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/configuration-not-found') {
+                                console.warn("Firebase Auth Error: Anonymous sign-in disabled. Switching to offline mode.");
+                            } else {
+                                console.error("Firebase Auth Error:", error);
+                            }
                             setIsOfflineMode(true);
                             setUser({ uid: "offline-user", isAnonymous: true });
                             setLoading(false);
@@ -565,18 +595,15 @@
                     });
                     return () => unsubscribe();
                 } else {
-                    // Demo Mode: Mock User
                     setIsOfflineMode(true);
                     setUser({ uid: "demo-user", isAnonymous: true });
                     setLoading(false); 
                 }
             }, []);
 
-            // Fetch Data
             useEffect(() => {
                 if (isFirebaseConfigured && !isOfflineMode) {
                     if (!user || !db) return;
-                    // Real Firestore Sync
                     const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'products');
                     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config');
 
@@ -586,10 +613,8 @@
                         setLoading(false);
                     }, (error) => {
                         console.error("Error fetching products:", error);
-                        // If fetching fails (e.g. rules), fallback to local
                         setIsOfflineMode(true);
                         setLoading(false);
-                        // Load from LocalStorage if available in fallback
                         const savedProducts = localStorage.getItem('products');
                         if (savedProducts) {
                              setProducts(JSON.parse(savedProducts));
@@ -610,7 +635,6 @@
                         unsubSettings();
                     };
                 } else {
-                    // Demo/Offline Mode: Local Storage
                     const savedProducts = localStorage.getItem('products');
                     const savedWhatsapp = localStorage.getItem('whatsappNumber');
 
@@ -627,15 +651,12 @@
                 }
             }, [user, isOfflineMode]);
 
-            // Sync Local Storage in Offline Mode
             useEffect(() => {
                 if (isOfflineMode) {
                     localStorage.setItem('products', JSON.stringify(products));
                     localStorage.setItem('whatsappNumber', whatsappNumber);
                 }
             }, [products, whatsappNumber, isOfflineMode]);
-
-            // --- Handlers ---
 
             const handleLogin = (e) => {
                 e.preventDefault();
@@ -661,12 +682,10 @@
                         showToast('حدث خطأ أثناء الحفظ', 'error');
                     }
                 } else {
-                    // Offline Mode: Saved via useEffect
                     showToast('تم تحديث الرقم (حفظ محلي)');
                 }
             };
 
-            // Image Update Logic
             const triggerUpdateImages = () => {
                 setConfirmMessage('سيتم محاولة تحديث صور المنتجات الحالية. هل تريد المتابعة؟');
                 setConfirmAction(() => executeUpdateImages);
@@ -676,7 +695,6 @@
             const executeUpdateImages = async () => {
                 setLoading(true);
                 setShowConfirmModal(false);
-                
                 try {
                     if (!isOfflineMode) {
                         const updates = products.map(p => {
@@ -700,7 +718,6 @@
                         });
                         await Promise.all(updates);
                     } else {
-                        // Offline Mode Update
                         const updatedProducts = products.map(p => {
                             const pName = p.name.toLowerCase().trim();
                             const defaultMatch = DEFAULT_PRODUCTS.find(d => 
@@ -728,7 +745,6 @@
                 }
             };
 
-            // Delete All Logic
             const triggerDeleteAll = () => {
                 setConfirmMessage('تحذير: سيتم حذف جميع المنتجات! هذه العملية لا يمكن التراجع عنها.');
                 setConfirmAction(() => executeDeleteAll);
@@ -738,14 +754,13 @@
             const executeDeleteAll = async () => {
                 setShowConfirmModal(false);
                 setLoading(true);
-                
                 try {
                     if (!isOfflineMode) {
                         const deletePromises = products.map(p => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id)));
                         await Promise.all(deletePromises);
                     } else {
                         setProducts([]);
-                        localStorage.removeItem('products'); // Clear local storage
+                        localStorage.removeItem('products');
                     }
                     showToast('تم حذف جميع المنتجات');
                 } catch (error) {
@@ -756,7 +771,6 @@
                 }
             };
 
-            // Seed Data Logic
             const handleSeedData = async () => {
                 setLoading(true);
                 try {
@@ -766,7 +780,6 @@
                             await addDoc(productsRef, prod);
                         }
                     } else {
-                        // Generate random IDs for offline mode
                         const demoProds = DEFAULT_PRODUCTS.map(p => ({...p, id: Math.random().toString(36).substr(2, 9)}));
                         setProducts(demoProds);
                     }
@@ -781,7 +794,6 @@
 
             const handleProductSubmit = async (e) => {
                 e.preventDefault();
-                
                 try {
                     if (!isOfflineMode) {
                         const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'products');
@@ -794,7 +806,6 @@
                             showToast('تم إضافة المنتج بنجاح');
                         }
                     } else {
-                        // Offline Mode
                         if (editingProduct) {
                             setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
                             showToast('تم تعديل المنتج (حفظ محلي)');
@@ -878,11 +889,13 @@
             };
 
             const handleGoHome = () => {
-                setSelectedProduct(null);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (selectedProduct) {
+                   window.history.back(); 
+                } else {
+                   window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
             };
 
-            // Render
             if (loading) return <Loading />;
 
             const Toast = () => (
@@ -894,7 +907,6 @@
                 )
             );
 
-            // --- Admin View ---
             if (isAdmin) {
                 return (
                     <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20">
@@ -993,7 +1005,6 @@
                             </section>
                         </div>
 
-                        {/* Modal */}
                         {isEditing && (
                             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                                 <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -1088,50 +1099,18 @@
                                 </div>
                             </div>
                         )}
-                        
-                        {showConfirmModal && (
-                            <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden scale-100 transform transition-all">
-                                    <div className="p-6 text-center">
-                                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
-                                            <AlertTriangle size={32} />
-                                        </div>
-                                        <h3 className="text-xl font-bold text-slate-900 mb-2">تأكيد الإجراء</h3>
-                                        <p className="text-slate-500 mb-6 leading-relaxed">{confirmMessage}</p>
-                                        <div className="flex gap-3 justify-center">
-                                            <button onClick={() => setShowConfirmModal(false)} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition">إلغاء</button>
-                                            <button onClick={confirmAction} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition shadow-lg shadow-red-200">نعم، متابعة</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 );
             }
 
-            // --- Public View: DETAIL PAGE ---
-            if (selectedProduct) {
-                return (
-                    <ProductDetailsPage 
-                        product={selectedProduct} 
-                        onBack={() => setSelectedProduct(null)} 
-                        onOrder={openWhatsapp} 
-                    />
-                );
-            }
-
-            // --- Public View: HOME PAGE ---
             return (
                 <div dir="rtl" className="font-sans text-slate-800 bg-slate-50 min-h-screen flex flex-col">
                     <Toast />
-                    {/* Fixed Navbar - Always Visible */}
                     <nav className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40">
                         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                            {/* Logo: Click -> Go Home, Double Click -> Admin */}
                             <div 
                                 className="flex items-center gap-2 cursor-pointer select-none" 
-                                onClick={handleGoHome}
+                                onClick={navigateHome}
                                 onDoubleClick={() => setShowLoginModal(true)} 
                                 title="Tech Services Store"
                             >
@@ -1149,20 +1128,17 @@
                                     <MessageCircle size={18} />
                                     تواصل معنا
                                 </button>
-                                {/* تم إخفاء زر الإعدادات الظاهر كما طلبت */}
                             </div>
                         </div>
                     </nav>
 
                     {selectedProduct ? (
-                        // DETAIL PAGE
                         <ProductDetailsPage 
                             product={selectedProduct} 
-                            onBack={() => setSelectedProduct(null)} 
+                            onBack={handleCloseProduct} 
                             onOrder={openWhatsapp} 
                         />
                     ) : (
-                        // HOME PAGE CONTENT
                         <>
                             <header className="relative bg-white overflow-hidden border-b border-slate-100">
                                 <div className="container mx-auto px-4 py-16 md:py-24 text-center z-10 relative">
@@ -1209,7 +1185,7 @@
                                                 <ProductCard 
                                                     key={product.id} 
                                                     product={product} 
-                                                    onViewDetails={setSelectedProduct}
+                                                    onViewDetails={openProductLink}
                                                 />
                                             ))}
                                         </div>
@@ -1224,7 +1200,6 @@
                                         <span className="text-xl font-bold text-white">Tech Services Store</span>
                                     </div>
                                     
-                                    {/* Social Links in Footer */}
                                     <div className="flex justify-center gap-4 mb-8">
                                         <a href="https://www.facebook.com/techservicess1" target="_blank" rel="noopener noreferrer" className="bg-slate-800 hover:bg-blue-600 text-white p-3 rounded-full transition">
                                             <Facebook size={20} />
@@ -1283,6 +1258,3 @@
     </script>
 </body>
 </html>
-
-
-
