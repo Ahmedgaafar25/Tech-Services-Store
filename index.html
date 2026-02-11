@@ -7,7 +7,6 @@
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="Tech Services Store provides original and activated subscriptions for world-class software and services (Microsoft, Adobe, AI, LinkedIn) at competitive prices.">
-    <meta name="keywords" content="Software, Office 365, LinkedIn Premium, Adobe Creative Cloud, AI Tools, Digital Services, Subscriptions, Cheap Software keys">
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -49,13 +48,8 @@
     
     <script>
         window.Babel = { presets: ['env', 'react'] };
-        // Global Error Handler
         window.onerror = function(msg, url, line, col, error) {
-            // Suppress Firebase Auth errors
-            if (msg && (msg.toString().includes("auth/admin-restricted-operation") || msg.toString().includes("auth/operation-not-allowed"))) {
-                console.warn("Firebase Auth Warning suppressed (Offline Mode Active)");
-                return true; 
-            }
+            if (msg && (msg.toString().includes("auth/admin-restricted-operation") || msg.toString().includes("auth/operation-not-allowed"))) return true;
             return false;
         };
     </script>
@@ -244,24 +238,24 @@
                 compatibleWith: "Compatible With",
                 descriptionTitle: "Description",
                 featuresTitle: "Features",
-                relatedTitle: "Related",
-                orderNow: "Order via WhatsApp",
+                relatedTitle: "Other Plans You Might Like",
+                orderNow: "Order Now via WhatsApp",
                 offerPrice: "Price",
-                loginTitle: "Login",
+                loginTitle: "Admin Login",
                 passCode: "Access Code",
                 enter: "Enter",
-                imageUpload: "Image",
-                uploadDevice: "Upload",
-                orLink: "Link",
+                imageUpload: "Product Image",
+                uploadDevice: "Upload from Device",
+                orLink: "Or Link",
                 repairTools: "Data Repair Tools",
                 updateAttempt: "Update Data",
                 deleteAll: "Reset All",
                 internationalPrice: "Intl Price (USD)",
                 bundle: "Bundle",
-                single: "Single",
+                single: "Single App",
                 sar: "SAR",
                 aed: "AED",
-                discount: "Sale",
+                discount: "Special Discount",
                 bestValue: "🚀 Best Price & Quality",
                 heroTitle1: "Boost Productivity",
                 heroTitle2: "Digital Services",
@@ -269,11 +263,11 @@
                 browseOffers: "Browse",
                 allOffers: "All Offers",
                 chooseOffer: "Choose your plan",
-                footerDesc: "Your digital services hub.",
-                copyright: "2024 Rights Reserved.",
+                footerDesc: "Your premier destination for the best digital services, design software, and AI tools.",
+                copyright: "2024 Tech Services Store. All rights reserved.",
                 filter: "Filter",
-                imageSizeWarning: "Image < 800KB",
-                imageTypeWarning: "Invalid file",
+                imageSizeWarning: "Small images preferred (< 800KB)",
+                imageTypeWarning: "Please select a valid image file",
                 helloMsg: "Hi, Inquiry:",
                 helloMsgProduct: "Order:",
                 sentFrom: "From",
@@ -297,8 +291,8 @@
                 shareSuccess: "Copied",
                 sortBy: "Sort",
                 sortDefault: "Default",
-                sortPriceLow: "Price: Low",
-                sortPriceHigh: "Price: High",
+                sortPriceLow: "Price: Low to High",
+                sortPriceHigh: "Price: High to Low",
                 forceOffline: "Force Offline Mode",
                 offlineMode: "Offline Mode"
             }
@@ -331,16 +325,6 @@
         ];
         /* PRODUCTS_END */
 
-        const useCountry = () => {
-            const [countryCode, setCountryCode] = useState('EG'); 
-            useEffect(() => {
-                fetch('https://api.country.is').then(res => res.json())
-                    .then(data => { if(data && data.country) setCountryCode(data.country); })
-                    .catch(err => {});
-            }, []);
-            return countryCode;
-        };
-        
         // Helper map for country names
         const countryMap = {
             'EG': '🇪🇬 مصر', 'SA': '🇸🇦 السعودية', 'AE': '🇦🇪 الإمارات', 'KW': '🇰🇼 الكويت',
@@ -348,6 +332,45 @@
             'JO': '🇯🇴 الأردن', 'IQ': '🇮🇶 العراق', 'LY': '🇱🇾 ليبيا', 'MA': '🇲🇦 المغرب',
             'US': '🇺🇸 أمريكا', 'GB': '🇬🇧 بريطانيا', 'DE': '🇩🇪 ألمانيا', 'FR': '🇫🇷 فرنسا',
             'TR': '🇹🇷 تركيا', 'Unknown': '🏳️ غير معروف'
+        };
+        
+        // Custom Hook for Country Detection with Fallback
+        const useCountry = () => {
+            const [countryCode, setCountryCode] = useState('EG'); 
+            
+            useEffect(() => {
+                const detectCountry = async () => {
+                    // Try Service 1: api.country.is
+                    try {
+                        const res = await fetch('https://api.country.is');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.country) {
+                                console.log("Country detected (api.country.is):", data.country);
+                                setCountryCode(data.country);
+                                return;
+                            }
+                        }
+                    } catch (e) { console.warn("Service 1 failed", e); }
+
+                    // Try Service 2: ipwho.is (Backup)
+                    try {
+                        const res = await fetch('https://ipwho.is/');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.country_code) {
+                                console.log("Country detected (ipwho.is):", data.country_code);
+                                setCountryCode(data.country_code);
+                                return;
+                            }
+                        }
+                    } catch (e) { console.warn("Service 2 failed", e); }
+                };
+
+                detectCountry();
+            }, []);
+
+            return countryCode;
         };
 
         const getLocalizedContent = (product, lang) => {
@@ -1224,10 +1247,13 @@
                                 <a href="mailto:contact@tech-services.shop" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-red-500"><Mail size={20}/></a>
                             </div>
                             
-                            {/* Removed Manual Country Switcher - Now relying on Auto IP Detection */}
-
-                            <button onClick={toggleTheme} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition">{isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
-                            <button onClick={toggleLanguage} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition"><Languages size={20}/></button>
+                            <button onClick={toggleTheme} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition text-slate-700 dark:text-slate-300" aria-label={t.toggleTheme}>
+                                {isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}
+                            </button>
+                            <button onClick={toggleLanguage} className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-lg transition font-bold text-sm" aria-label="Language">
+                                <Globe size={18} />
+                                <span>{lang === 'ar' ? 'EN' : 'عربي'}</span>
+                            </button>
                         </div>
                     </nav>
 
@@ -1239,7 +1265,10 @@
                                 <span className="inline-block bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-1.5 rounded-full text-sm font-bold mb-6 border border-blue-100 dark:border-blue-800 animate-fade-in">
                                     {t.bestValue}
                                 </span>
-                                <h1 className="text-4xl md:text-6xl font-black mb-6 text-slate-900 dark:text-white">{t.heroTitle1} <span className="text-blue-600">{t.heroTitle2}</span></h1>
+                                <h1 className="text-4xl md:text-6xl font-black mb-6 text-slate-900 dark:text-white leading-relaxed">
+                                    {t.heroTitle1}
+                                    <span className="text-blue-600 inline-block mx-2">{t.heroTitle2}</span>
+                                </h1>
                                 <p className="text-xl text-slate-500 dark:text-slate-400 mb-8 max-w-2xl mx-auto">{t.heroDesc}</p>
                                 <button onClick={() => document.getElementById('products').scrollIntoView({behavior: 'smooth'})} className="bg-blue-600 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">{t.browseOffers}</button>
                             </header>
