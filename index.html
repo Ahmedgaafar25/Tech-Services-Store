@@ -337,54 +337,35 @@
         
         // --- Improved Robust Country Hook ---
         const useCountry = () => {
-            // First look in localStorage for an immediate result, default to 'EG'
             const [countryCode, setCountryCode] = useState(() => {
                 return localStorage.getItem(STORAGE_KEYS.USER_COUNTRY) || 'EG';
             }); 
             
             useEffect(() => {
                 const detectCountry = async () => {
-                    // Method 1: geojs.io (Most reliable, no strict CORS)
                     try {
                         const res = await fetch('https://get.geojs.io/v1/ip/country.json');
                         if (res.ok) {
                             const data = await res.json();
                             if (data.country) {
-                                console.log("Country detected (geojs):", data.country);
                                 setCountryCode(data.country);
                                 localStorage.setItem(STORAGE_KEYS.USER_COUNTRY, data.country);
                                 return;
                             }
                         }
                     } catch (e) { console.warn("GeoJS failed", e); }
-
-                    // Method 2: ipapi.co
+                    
                     try {
                         const res = await fetch('https://ipapi.co/json/');
                         if (res.ok) {
                             const data = await res.json();
                             if (data.country_code) {
-                                console.log("Country detected (ipapi):", data.country_code);
                                 setCountryCode(data.country_code);
                                 localStorage.setItem(STORAGE_KEYS.USER_COUNTRY, data.country_code);
                                 return;
                             }
                         }
                     } catch (e) { console.warn("ipapi failed", e); }
-
-                    // Method 3: api.country.is
-                    try {
-                        const res = await fetch('https://api.country.is');
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.country) {
-                                console.log("Country detected (country.is):", data.country);
-                                setCountryCode(data.country);
-                                localStorage.setItem(STORAGE_KEYS.USER_COUNTRY, data.country);
-                                return;
-                            }
-                        }
-                    } catch (e) { console.warn("country.is failed", e); }
                 };
 
                 detectCountry();
@@ -427,9 +408,7 @@
         };
 
         const hashString = async (message) => {
-            if (!window.crypto || !window.crypto.subtle) {
-                return "fallback";
-            }
+            if (!window.crypto || !window.crypto.subtle) return "fallback";
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -459,27 +438,51 @@
             try {
                 const dateKey = new Date().toISOString().split('T')[0];
                 const ref = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'conversions', dateKey);
-                await setDoc(ref, { 
-                    totalClicks: increment(1),
-                    [productName]: increment(1)
-                }, { merge: true });
+                await setDoc(ref, { totalClicks: increment(1), [productName]: increment(1) }, { merge: true });
             } catch (err) { console.error("Analytics Error", err); }
         };
 
-        const SkeletonCard = () => (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700 h-full">
-                <div className="h-48 bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
-                <div className="p-6 space-y-4">
-                    <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-3/4 animate-pulse"></div>
-                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4 animate-pulse"></div>
-                    <div className="space-y-2">
-                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-                    </div>
-                    <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-xl animate-pulse mt-auto"></div>
-                </div>
-            </div>
-        );
+        // --- GitHub Sync Function ---
+        const saveToGitHub = async (updatedProducts) => {
+            const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+            if (!config.token || !config.owner || !config.repo || !config.path) {
+                console.warn("GitHub config missing");
+                return;
+            }
+
+            try {
+                const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
+                const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
+                if (!getRes.ok) throw new Error("فشل جلب ملف الكود");
+                
+                const fileData = await getRes.json();
+                const currentContent = decodeURIComponent(escape(atob(fileData.content)));
+                
+                const startMarker = '/* PRODUCTS_START */';
+                const endMarker = '/* PRODUCTS_END */';
+                const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
+                const endIndex = currentContent.indexOf(endMarker);
+                
+                if (startIndex === -1 || endIndex === -1) throw new Error("لا توجد علامات تحديد في الكود");
+                
+                const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
+                const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
+                
+                const putRes = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: "Update products from Dashboard",
+                        content: btoa(unescape(encodeURIComponent(newContent))),
+                        sha: fileData.sha
+                    })
+                });
+
+                if (!putRes.ok) throw new Error("فشل الرفع لـ GitHub");
+            } catch (err) {
+                console.error("GitHub Sync Error:", err);
+            }
+        };
 
         const ProductCard = ({ product, onViewDetails, countryCode, lang }) => {
             const [imageError, setImageError] = useState(false);
@@ -508,7 +511,6 @@
                                 className="object-contain w-full h-full transform group-hover:scale-110 transition duration-500"
                                 onError={() => setImageError(true)}
                                 loading="lazy"
-                                decoding="async"
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center text-slate-300 dark:text-slate-500 group-hover:text-blue-500 transition">
@@ -570,15 +572,11 @@
             useEffect(() => { 
                 window.scrollTo(0, 0); 
                 document.title = `${content.name} | ${t.appTitle}`;
-                trackProductView(product.id); // Track View
+                trackProductView(product.id);
             }, [product, content.name, t.appTitle]);
 
             const handleOrderClick = () => {
-                onOrder({
-                    name: content.name,
-                    price: pricing.current,
-                    duration: content.duration
-                });
+                onOrder({ name: content.name, price: pricing.current, duration: content.duration });
             };
 
             return (
@@ -986,8 +984,51 @@
             const executeUpdateImages = async () => { setLoading(true); setShowConfirmModal(false); try { showToast(t.saveData); } catch (e) { showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } }; 
             const triggerDeleteAll = () => { setConfirmMessage(t.deleteAll); setConfirmAction(() => executeDeleteAll); setShowConfirmModal(true); };
             
-            // Dummy saveToGitHub to prevent errors if undefined
-            const saveToGitHub = async (data) => { console.log("Saving to github", data); };
+            // --- UPDATED GITHUB SYNC ---
+            const saveToGitHub = async (updatedProducts) => {
+                const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+                if (!config.token || !config.owner || !config.repo || !config.path) {
+                    console.warn("GitHub config missing");
+                    return;
+                }
+
+                showToast(t.githubSyncing);
+
+                try {
+                    const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
+                    const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
+                    if (!getRes.ok) throw new Error(t.githubError);
+                    
+                    const fileData = await getRes.json();
+                    const currentContent = decodeURIComponent(escape(atob(fileData.content)));
+                    
+                    const startMarker = '/* PRODUCTS_START */';
+                    const endMarker = '/* PRODUCTS_END */';
+                    const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
+                    const endIndex = currentContent.indexOf(endMarker);
+                    
+                    if (startIndex === -1 || endIndex === -1) throw new Error("لا توجد علامات تحديد في الكود");
+                    
+                    const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
+                    const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
+                    
+                    const putRes = await fetch(url, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: "Update products from Dashboard",
+                            content: btoa(unescape(encodeURIComponent(newContent))),
+                            sha: fileData.sha
+                        })
+                    });
+
+                    if (!putRes.ok) throw new Error(t.githubError);
+                    showToast(t.githubSuccess);
+                } catch (err) {
+                    console.error("GitHub Sync Error:", err);
+                    showToast(t.githubError, "error");
+                }
+            };
 
             const executeDeleteAll = async () => { setShowConfirmModal(false); setLoading(true); try { if(!isOfflineMode) { const promises = products.map(p => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id))); await Promise.all(promises); } else { setProducts([]); localStorage.removeItem(STORAGE_KEYS.PRODUCTS); } await saveToGitHub([]); showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
             const handleSeedData = async () => { setLoading(true); try { if(!isOfflineMode) { for(const p of DEFAULT_PRODUCTS) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), p); } else { setProducts(DEFAULT_PRODUCTS.map(p=>({...p, id: Math.random().toString(36).substr(2,9)}))); } showToast(t.restoreData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
@@ -1275,7 +1316,6 @@
                                 <a href="mailto:contact@tech-services.shop" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-red-500"><Mail size={20}/></a>
                             </div>
                             
-                            {/* Country Flag Indicator for Debugging/Verification */}
                             <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg text-lg hidden sm:block" title={`Detected Country: ${countryCode}`}>
                                 {countryMap[countryCode]?.split(' ')[0] || '🌍'}
                             </div>
