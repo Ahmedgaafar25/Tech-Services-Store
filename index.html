@@ -812,46 +812,60 @@
         };
 
         // --- GitHub Sync Function ---
-        const saveToGitHub = async (updatedProducts) => {
-            const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
-            if (!config.token || !config.owner || !config.repo || !config.path) {
-                console.warn("GitHub config missing");
-                return;
-            }
+      const saveToGitHub = async (updatedProducts) => {
+    const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+    if (!config.token || !config.owner || !config.repo || !config.path) {
+        showToast("يرجى ضبط إعدادات GitHub أولاً", "error");
+        return;
+    }
 
-            try {
-                const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
-                if (!getRes.ok) throw new Error("فشل جلب ملف الكود");
-                
-                const fileData = await getRes.json();
-                const currentContent = decodeURIComponent(escape(atob(fileData.content)));
-                
-                const startMarker = '/* PRODUCTS_START */';
-                const endMarker = '/* PRODUCTS_END */';
-                const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
-                const endIndex = currentContent.indexOf(endMarker);
-                
-                if (startIndex === -1 || endIndex === -1) throw new Error("لا توجد علامات تحديد في الكود");
-                
-                const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
-                const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
-                
-                const putRes = await fetch(url, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: "Update products from Dashboard",
-                        content: btoa(unescape(encodeURIComponent(newContent))),
-                        sha: fileData.sha
-                    })
-                });
+    showToast("جاري المزامنة مع GitHub...");
 
-                if (!putRes.ok) throw new Error("فشل الرفع لـ GitHub");
-            } catch (err) {
-                console.error("GitHub Sync Error:", err);
-            }
-        };
+    try {
+        // إضافة طابع زمني للرابط لضمان عدم الحصول على نسخة قديمة من الكاش
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}?t=${new Date().getTime()}`;
+        
+        const getRes = await fetch(url, { 
+            headers: { 
+                'Authorization': `token ${config.token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Cache-Control': 'no-cache' 
+            } 
+        });
+        
+        if (!getRes.ok) throw new Error("فشل جلب الملف من GitHub (تأكد من المسار والتوكن)");
+        
+        const fileData = await getRes.json();
+        const currentContent = decodeURIComponent(escape(atob(fileData.content)));
+        
+        // البحث عن العلامات بمرونة أكبر (باستخدام تعبير منتظم لتجاهل أي مسافات زائدة)
+        const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
+        
+        if (!regex.test(currentContent)) {
+             throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END بشكل صحيح");
+        }
+        
+        const newProductsBlock = `/* PRODUCTS_START */\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n        /* PRODUCTS_END */`;
+        const newContent = currentContent.replace(regex, newProductsBlock);
+        
+        const putRes = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: "Update products via Dashboard",
+                content: btoa(unescape(encodeURIComponent(newContent))),
+                sha: fileData.sha
+            })
+        });
+
+        if (!putRes.ok) throw new Error("فشل رفع التعديلات لـ GitHub");
+
+        showToast("تم تحديث المنتجات على GitHub بنجاح!");
+    } catch (err) {
+        console.error("DEBUG_ERROR:", err);
+        showToast(err.message, "error");
+    }
+};
 
         const ProductCard = ({ product, onViewDetails, countryCode, lang }) => {
             const [imageError, setImageError] = useState(false);
