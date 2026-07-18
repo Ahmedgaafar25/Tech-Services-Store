@@ -855,8 +855,12 @@
                         throw new Error(`فشل جلب الملف من GitHub: ${getRes.status} ${fileData.message || getText}`);
                     }
 
+                    if (Array.isArray(fileData)) {
+                        throw new Error("المسار في GitHub يشير إلى مجلد وليس ملفًا. تأكد من كتابة اسم الملف كاملًا مثل index.html");
+                    }
+
                     if (!fileData.content || !fileData.sha) {
-                        throw new Error("الرد من GitHub لا يحتوي على content أو sha");
+                        throw new Error(`استجابة GitHub غير متوقعة: ${typeof fileData === 'object' ? JSON.stringify(fileData).slice(0, 500) : getText.slice(0, 500)}`);
                     }
 
                     const currentContent = decodeBase64Utf8(fileData.content);
@@ -1444,8 +1448,12 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                         throw new Error(`فشل جلب الملف من GitHub: ${getRes.status} ${fileData.message || getText}`);
                     }
 
+                    if (Array.isArray(fileData)) {
+                        throw new Error("المسار في GitHub يشير إلى مجلد وليس ملفًا. تأكد من كتابة اسم الملف كاملًا مثل index.html");
+                    }
+
                     if (!fileData.content || !fileData.sha) {
-                        throw new Error("الرد من GitHub لا يحتوي على content أو sha");
+                        throw new Error(`استجابة GitHub غير متوقعة: ${typeof fileData === 'object' ? JSON.stringify(fileData).slice(0, 500) : getText.slice(0, 500)}`);
                     }
 
                     const currentContent = decodeBase64Utf8(fileData.content);
