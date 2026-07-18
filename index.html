@@ -821,15 +821,13 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             products: updatedProducts,
-                            path: config?.path || 'index.html'
+                            path: 'index.html'
                         })
                     });
                     const text = await res.text();
                     let data = {};
                     try { data = JSON.parse(text); } catch (_) {}
-                    if (!res.ok) {
-                        throw new Error(data.message || text || 'Backend sync failed');
-                    }
+                    if (!res.ok) throw new Error(data.message || text || 'Backend sync failed');
                     showToast(data.message || t.githubSuccess || 'تمت المزامنة بنجاح');
                 } catch (err) {
                     console.error('Backend Sync Error:', err);
@@ -911,10 +909,7 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                             throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putData.message || putText}`);
                         }
                         showToast(t.githubSuccess || "تم تحديث المنتجات على GitHub بنجاح!");
-                        return;
-                    }
-
-                    if (!fileData.content || !fileData.sha) {
+                        } else if (!fileData.content || !fileData.sha) {
                         throw new Error(`استجابة GitHub غير متوقعة: ${typeof fileData === 'object' ? JSON.stringify(fileData).slice(0, 500) : getText.slice(0, 500)}`);
                     }
 
@@ -1469,15 +1464,13 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             products: updatedProducts,
-                            path: config?.path || 'index.html'
+                            path: 'index.html'
                         })
                     });
                     const text = await res.text();
                     let data = {};
                     try { data = JSON.parse(text); } catch (_) {}
-                    if (!res.ok) {
-                        throw new Error(data.message || text || 'Backend sync failed');
-                    }
+                    if (!res.ok) throw new Error(data.message || text || 'Backend sync failed');
                     showToast(data.message || t.githubSuccess || 'تمت المزامنة بنجاح');
                 } catch (err) {
                     console.error('Backend Sync Error:', err);
@@ -1559,10 +1552,7 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                             throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putData.message || putText}`);
                         }
                         showToast(t.githubSuccess || "تم تحديث المنتجات على GitHub بنجاح!");
-                        return;
-                    }
-
-                    if (!fileData.content || !fileData.sha) {
+                        } else if (!fileData.content || !fileData.sha) {
                         throw new Error(`استجابة GitHub غير متوقعة: ${typeof fileData === 'object' ? JSON.stringify(fileData).slice(0, 500) : getText.slice(0, 500)}`);
                     }
 
