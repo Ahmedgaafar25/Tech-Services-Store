@@ -843,7 +843,7 @@
                     const getRes = await fetch(`${url}?t=${Date.now()}`, {
                         headers: {
                             'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json'
+                            'Accept': 'application/vnd.github.v3.raw'
                         }
                     });
 
@@ -879,7 +879,7 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                         method: 'PUT',
                         headers: {
                             'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
+                            'Accept': 'application/vnd.github.v3.raw',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -1436,7 +1436,7 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                     const getRes = await fetch(`${url}?t=${Date.now()}`, {
                         headers: {
                             'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json'
+                            'Accept': 'application/vnd.github.v3.raw'
                         }
                     });
 
@@ -1472,7 +1472,7 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                         method: 'PUT',
                         headers: {
                             'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
+                            'Accept': 'application/vnd.github.v3.raw',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
