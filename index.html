@@ -813,186 +813,59 @@
 
         // --- GitHub Sync Function ---
       const saveToGitHub = async (updatedProducts) => {
-                const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
-                if (!config.token || !config.owner || !config.repo || !config.path) {
-                    showToast("يرجى ضبط إعدادات GitHub أولاً", "error");
-                    return;
-                }
+    const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+    if (!config.token || !config.owner || !config.repo || !config.path) {
+        showToast("يرجى ضبط إعدادات GitHub أولاً", "error");
+        return;
+    }
 
-                const decodeBase64Utf8 = (base64) => {
-                    const binary = atob((base64 || '').replace(/\n/g, ''));
-                    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-                    return new TextDecoder().decode(bytes);
-                };
+    showToast("جاري المزامنة مع GitHub...");
 
-                const encodeBase64Utf8 = (text) => {
-                    const bytes = new TextEncoder().encode(text);
-                    let binary = '';
-                    const chunkSize = 0x8000;
-                    for (let i = 0; i < bytes.length; i += chunkSize) {
-                        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-                    }
-                    return btoa(binary);
-                };
+    try {
+        // إضافة طابع زمني للرابط لضمان عدم الحصول على نسخة قديمة من الكاش
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}?t=${new Date().getTime()}`;
+        
+        const getRes = await fetch(url, { 
+            headers: { 
+                'Authorization': `token ${config.token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Cache-Control': 'no-cache' 
+            } 
+        });
+        
+        if (!getRes.ok) throw new Error("فشل جلب الملف من GitHub (تأكد من المسار والتوكن)");
+        
+        const fileData = await getRes.json();
+        const currentContent = decodeURIComponent(escape(atob(fileData.content)));
+        
+        // البحث عن العلامات بمرونة أكبر (باستخدام تعبير منتظم لتجاهل أي مسافات زائدة)
+        const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
+        
+        if (!regex.test(currentContent)) {
+             throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END بشكل صحيح");
+        }
+        
+        const newProductsBlock = `/* PRODUCTS_START */\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n        /* PRODUCTS_END */`;
+        const newContent = currentContent.replace(regex, newProductsBlock);
+        
+        const putRes = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: "Update products via Dashboard",
+                content: btoa(unescape(encodeURIComponent(newContent))),
+                sha: fileData.sha
+            })
+        });
 
-                showToast("جاري المزامنة مع GitHub...");
-                try {
-                    const apiUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getRes = await fetch(`${apiUrl}?t=${Date.now()}`, {
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github.raw'
-                        }
-                    });
-                    const rawText = await getRes.text();
-                    if (!getRes.ok) throw new Error(`فشل جلب الملف من GitHub: ${getRes.status} ${rawText}`);
-                    const currentContent = rawText;
-                    const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
-                    if (!regex.test(currentContent)) throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END داخل الملف");
-                    const newProductsBlock = `/* PRODUCTS_START */\nconst DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n/* PRODUCTS_END */`;
-                    const newContent = currentContent.replace(regex, newProductsBlock);
-                    const shaRes = await fetch(`${apiUrl}?t=${Date.now()}`, { headers: { 'Authorization': `token ${config.token}`, 'Accept': 'application/vnd.github+json' } });
-                    const shaData = await shaRes.json();
-                    const putRes = await fetch(apiUrl, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: "Update products via Dashboard",
-                            content: encodeBase64Utf8(newContent),
-                            sha: shaData.sha
-                        })
-                    });
-                    const putText = await putRes.text();
-                    if (!putRes.ok) throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putText}`);
-                    showToast("تم تحديث المنتجات على GitHub بنجاح!");
-                } catch (err) {
-                    console.error("GitHub Sync Error:", err);
-                    showToast(err?.message || "فشل حفظ التغييرات", "error");
-                }
-            };
+        if (!putRes.ok) throw new Error("فشل رفع التعديلات لـ GitHub");
 
-                const encodeBase64Utf8 = (text) => {
-                    const bytes = new TextEncoder().encode(text);
-                    let binary = '';
-                    const chunkSize = 0x8000;
-                    for (let i = 0; i < bytes.length; i += chunkSize) {
-                        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-                    }
-                    return btoa(binary);
-                };
-
-                showToast(t.githubSyncing || "جاري المزامنة مع GitHub...");
-
-                try {
-                    const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getRes = await fetch(`${url}?t=${Date.now()}`, {
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github.v3.raw'
-                        }
-                    });
-
-                    const getText = await getRes.text();
-                    let fileData = {};
-                    try { fileData = JSON.parse(getText); } catch (_) {}
-
-                    if (!getRes.ok) {
-                        throw new Error(`فشل جلب الملف من GitHub: ${getRes.status} ${fileData.message || getText}`);
-                    }
-
-                    if (Array.isArray(fileData)) {
-                        throw new Error("المسار في GitHub يشير إلى مجلد وليس ملفًا. تأكد من كتابة اسم الملف كاملًا مثل index.html");
-                    }
-
-                    if (fileData.encoding === 'none' || fileData.content === '') {
-                        const rawRes = await fetch(`${url}?t=${Date.now()}`, {
-                            headers: {
-                                'Authorization': `token ${config.token}`,
-                                'Accept': 'application/vnd.github.raw',
-                                'Cache-Control': 'no-store'
-                            }
-                        });
-                        if (!rawRes.ok) {
-                            throw new Error(`فشل جلب الملف بصيغة raw: ${rawRes.status}`);
-                        }
-                        const currentContent = await rawRes.text();
-                        const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
-                        if (!regex.test(currentContent)) {
-                            throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END داخل الملف");
-                        }
-                        const newProductsBlock = `/* PRODUCTS_START */
-const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
-/* PRODUCTS_END */`;
-                        const newContent = currentContent.replace(regex, newProductsBlock);
-                        const putRes = await fetch(url, {
-                            method: 'PUT',
-                            headers: {
-                                'Authorization': `token ${config.token}`,
-                                'Accept': 'application/vnd.github+json',
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                message: "Update products from Dashboard",
-                                content: encodeBase64Utf8(newContent),
-                                sha: fileData.sha,
-                                branch: fileData.default_branch || undefined
-                            })
-                        });
-                        const putText = await putRes.text();
-                        let putData = {};
-                        try { putData = JSON.parse(putText); } catch (_) {}
-                        if (!putRes.ok) {
-                            throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putData.message || putText}`);
-                        }
-                        showToast(t.githubSuccess || "تم تحديث المنتجات على GitHub بنجاح!");
-                        } else if (!fileData.content || !fileData.sha) {
-                        throw new Error(`استجابة GitHub غير متوقعة: ${typeof fileData === 'object' ? JSON.stringify(fileData).slice(0, 500) : getText.slice(0, 500)}`);
-                    }
-
-                    const currentContent = decodeBase64Utf8(fileData.content);
-                    const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
-
-                    if (!regex.test(currentContent)) {
-                        throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END داخل الملف");
-                    }
-
-                    const newProductsBlock = `/* PRODUCTS_START */
-const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
-/* PRODUCTS_END */`;
-                    const newContent = currentContent.replace(regex, newProductsBlock);
-
-                    const putRes = await fetch(url, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github.v3.raw',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: "Update products from Dashboard",
-                            content: encodeBase64Utf8(newContent),
-                            sha: fileData.sha
-                        })
-                    });
-
-                    const putText = await putRes.text();
-                    let putData = {};
-                    try { putData = JSON.parse(putText); } catch (_) {}
-
-                    if (!putRes.ok) {
-                        throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putData.message || putText}`);
-                    }
-
-                    showToast(t.githubSuccess || "تم تحديث المنتجات على GitHub بنجاح!");
-                } catch (err) {
-                    console.error("GitHub Sync Error:", err);
-                    showToast(err?.message || t.githubError || "حدث خطأ أثناء المزامنة مع GitHub", 'error');
-                }
-            };
+        showToast("تم تحديث المنتجات على GitHub بنجاح!");
+    } catch (err) {
+        console.error("DEBUG_ERROR:", err);
+        showToast(err.message, "error");
+    }
+};
 
         const ProductCard = ({ product, onViewDetails, countryCode, lang }) => {
             const [imageError, setImageError] = useState(false);
@@ -1498,182 +1371,45 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
             const saveToGitHub = async (updatedProducts) => {
                 const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
                 if (!config.token || !config.owner || !config.repo || !config.path) {
-                    showToast("يرجى ضبط إعدادات GitHub أولاً", "error");
+                    console.warn("GitHub config missing");
                     return;
                 }
 
-                const decodeBase64Utf8 = (base64) => {
-                    const binary = atob((base64 || '').replace(/\n/g, ''));
-                    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-                    return new TextDecoder().decode(bytes);
-                };
-
-                const encodeBase64Utf8 = (text) => {
-                    const bytes = new TextEncoder().encode(text);
-                    let binary = '';
-                    const chunkSize = 0x8000;
-                    for (let i = 0; i < bytes.length; i += chunkSize) {
-                        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-                    }
-                    return btoa(binary);
-                };
-
-                showToast("جاري المزامنة مع GitHub...");
-                try {
-                    const apiUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getRes = await fetch(`${apiUrl}?t=${Date.now()}`, {
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github.raw'
-                        }
-                    });
-                    const rawText = await getRes.text();
-                    if (!getRes.ok) throw new Error(`فشل جلب الملف من GitHub: ${getRes.status} ${rawText}`);
-                    const currentContent = rawText;
-                    const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
-                    if (!regex.test(currentContent)) throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END داخل الملف");
-                    const newProductsBlock = `/* PRODUCTS_START */\nconst DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n/* PRODUCTS_END */`;
-                    const newContent = currentContent.replace(regex, newProductsBlock);
-                    const shaRes = await fetch(`${apiUrl}?t=${Date.now()}`, { headers: { 'Authorization': `token ${config.token}`, 'Accept': 'application/vnd.github+json' } });
-                    const shaData = await shaRes.json();
-                    const putRes = await fetch(apiUrl, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: "Update products via Dashboard",
-                            content: encodeBase64Utf8(newContent),
-                            sha: shaData.sha
-                        })
-                    });
-                    const putText = await putRes.text();
-                    if (!putRes.ok) throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putText}`);
-                    showToast("تم تحديث المنتجات على GitHub بنجاح!");
-                } catch (err) {
-                    console.error("GitHub Sync Error:", err);
-                    showToast(err?.message || "فشل حفظ التغييرات", "error");
-                }
-            };
-
-                const encodeBase64Utf8 = (text) => {
-                    const bytes = new TextEncoder().encode(text);
-                    let binary = '';
-                    const chunkSize = 0x8000;
-                    for (let i = 0; i < bytes.length; i += chunkSize) {
-                        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-                    }
-                    return btoa(binary);
-                };
-
-                showToast(t.githubSyncing || "جاري المزامنة مع GitHub...");
+                showToast(t.githubSyncing);
 
                 try {
                     const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getRes = await fetch(`${url}?t=${Date.now()}`, {
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github.v3.raw'
-                        }
-                    });
-
-                    const getText = await getRes.text();
-                    let fileData = {};
-                    try { fileData = JSON.parse(getText); } catch (_) {}
-
-                    if (!getRes.ok) {
-                        throw new Error(`فشل جلب الملف من GitHub: ${getRes.status} ${fileData.message || getText}`);
-                    }
-
-                    if (Array.isArray(fileData)) {
-                        throw new Error("المسار في GitHub يشير إلى مجلد وليس ملفًا. تأكد من كتابة اسم الملف كاملًا مثل index.html");
-                    }
-
-                    if (fileData.encoding === 'none' || fileData.content === '') {
-                        const rawRes = await fetch(`${url}?t=${Date.now()}`, {
-                            headers: {
-                                'Authorization': `token ${config.token}`,
-                                'Accept': 'application/vnd.github.raw',
-                                'Cache-Control': 'no-store'
-                            }
-                        });
-                        if (!rawRes.ok) {
-                            throw new Error(`فشل جلب الملف بصيغة raw: ${rawRes.status}`);
-                        }
-                        const currentContent = await rawRes.text();
-                        const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
-                        if (!regex.test(currentContent)) {
-                            throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END داخل الملف");
-                        }
-                        const newProductsBlock = `/* PRODUCTS_START */
-const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
-/* PRODUCTS_END */`;
-                        const newContent = currentContent.replace(regex, newProductsBlock);
-                        const putRes = await fetch(url, {
-                            method: 'PUT',
-                            headers: {
-                                'Authorization': `token ${config.token}`,
-                                'Accept': 'application/vnd.github+json',
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                message: "Update products from Dashboard",
-                                content: encodeBase64Utf8(newContent),
-                                sha: fileData.sha,
-                                branch: fileData.default_branch || undefined
-                            })
-                        });
-                        const putText = await putRes.text();
-                        let putData = {};
-                        try { putData = JSON.parse(putText); } catch (_) {}
-                        if (!putRes.ok) {
-                            throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putData.message || putText}`);
-                        }
-                        showToast(t.githubSuccess || "تم تحديث المنتجات على GitHub بنجاح!");
-                        } else if (!fileData.content || !fileData.sha) {
-                        throw new Error(`استجابة GitHub غير متوقعة: ${typeof fileData === 'object' ? JSON.stringify(fileData).slice(0, 500) : getText.slice(0, 500)}`);
-                    }
-
-                    const currentContent = decodeBase64Utf8(fileData.content);
-                    const regex = /\/\*\s*PRODUCTS_START\s*\*\/\s*const\s+DEFAULT_PRODUCTS\s*=\s*\[[\s\S]*?\];\s*\/\*\s*PRODUCTS_END\s*\*\//;
-
-                    if (!regex.test(currentContent)) {
-                        throw new Error("لم يتم العثور على منطقة PRODUCTS_START / END داخل الملف");
-                    }
-
-                    const newProductsBlock = `/* PRODUCTS_START */
-const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
-/* PRODUCTS_END */`;
-                    const newContent = currentContent.replace(regex, newProductsBlock);
-
+                    const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
+                    if (!getRes.ok) throw new Error(t.githubError);
+                    
+                    const fileData = await getRes.json();
+                    const currentContent = decodeURIComponent(escape(atob(fileData.content)));
+                    
+                    const startMarker = '/* PRODUCTS_START */';
+                    const endMarker = '/* PRODUCTS_END */';
+                    const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
+                    const endIndex = currentContent.indexOf(endMarker);
+                    
+                    if (startIndex === -1 || endIndex === -1) throw new Error("لا توجد علامات تحديد في الكود");
+                    
+                    const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
+                    const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
+                    
                     const putRes = await fetch(url, {
                         method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github.v3.raw',
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             message: "Update products from Dashboard",
-                            content: encodeBase64Utf8(newContent),
+                            content: btoa(unescape(encodeURIComponent(newContent))),
                             sha: fileData.sha
                         })
                     });
 
-                    const putText = await putRes.text();
-                    let putData = {};
-                    try { putData = JSON.parse(putText); } catch (_) {}
-
-                    if (!putRes.ok) {
-                        throw new Error(`فشل رفع التعديلات إلى GitHub: ${putRes.status} ${putData.message || putText}`);
-                    }
-
-                    showToast(t.githubSuccess || "تم تحديث المنتجات على GitHub بنجاح!");
+                    if (!putRes.ok) throw new Error(t.githubError);
+                    showToast(t.githubSuccess);
                 } catch (err) {
                     console.error("GitHub Sync Error:", err);
-                    showToast(err?.message || t.githubError || "حدث خطأ أثناء المزامنة مع GitHub", 'error');
+                    showToast(t.githubError, "error");
                 }
             };
 
