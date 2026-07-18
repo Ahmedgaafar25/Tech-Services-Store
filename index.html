@@ -843,8 +843,7 @@
                     const getRes = await fetch(`${url}?t=${Date.now()}`, {
                         headers: {
                             'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
-                            'Cache-Control': 'no-cache'
+                            'Accept': 'application/vnd.github+json'
                         }
                     });
 
@@ -1433,8 +1432,7 @@ const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};
                     const getRes = await fetch(`${url}?t=${Date.now()}`, {
                         headers: {
                             'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
-                            'Cache-Control': 'no-cache'
+                            'Accept': 'application/vnd.github+json'
                         }
                     });
 
