@@ -186,14 +186,16 @@
                 serviceUnavailable: "الخدمة غير متوفرة حالياً",
                 unexpectedError: "حدث خطأ غير متوقع",
                 githubSettings: "ربط وتحديث GitHub تلقائياً",
-                githubToken: "رمز الدخول الشخصي (GitHub Token)",
+                githubEndpoint: "رابط Endpoint الآمن للمزامنة",
+                githubToken: "مفتاح التحقق للـ Endpoint (اختياري)",
                 githubOwner: "اسم مالك الحساب (Owner)",
                 githubRepo: "اسم المستودع (Repo)",
                 githubPath: "مسار الملف (Path e.g., index.html)",
                 githubSyncing: "جاري المزامنة مع GitHub...",
                 githubSuccess: "تم تحديث الكود في GitHub بنجاح!",
                 githubError: "فشل التحديث في GitHub. تأكد من البيانات.",
-                githubInfo: "عند تفعيل هذا الخيار، سيتم تحديث ملف الكود مباشرة عند إضافة أو تعديل المنتجات.",
+                githubInfo: "عند ضبط بيانات الربط، سيتم إرسال التحديثات إلى Endpoint آمن ليقوم بتحديث ملف index.html في GitHub.",
+                githubConfigSaved: "تم حفظ إعدادات GitHub بنجاح!",
                 share: "مشاركة",
                 shareSuccess: "تم نسخ الرابط",
                 sortBy: "ترتيب حسب",
@@ -280,14 +282,16 @@
                 serviceUnavailable: "Unavailable",
                 unexpectedError: "Error",
                 githubSettings: "GitHub Sync",
-                githubToken: "Token",
+                githubEndpoint: "Secure Sync Endpoint URL",
+                githubToken: "Endpoint Auth Key (Optional)",
                 githubOwner: "Owner",
                 githubRepo: "Repo",
                 githubPath: "Path",
                 githubSyncing: "Syncing...",
                 githubSuccess: "Code updated on GitHub successfully!",
                 githubError: "Failed to update GitHub. Check credentials.",
-                githubInfo: "When enabled, the source code file will be updated automatically upon product changes.",
+                githubInfo: "When configured, updates are sent to a secure backend endpoint that updates index.html on GitHub.",
+                githubConfigSaved: "GitHub settings saved successfully!",
                 share: "Share",
                 shareSuccess: "Copied",
                 sortBy: "Sort",
@@ -1109,7 +1113,8 @@
             
             const [githubConfig, setGithubConfig] = useState(() => {
                 const saved = localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG);
-                return saved ? JSON.parse(saved) : { token: '', owner: '', repo: '', path: '' };
+                const parsed = saved ? JSON.parse(saved) : {};
+                return { endpoint: parsed.endpoint || '', token: parsed.token || '', owner: parsed.owner || '', repo: parsed.repo || '', path: parsed.path || '' };
             });
 
             const [lang, setLang] = useState('ar');
@@ -1312,120 +1317,78 @@
             const executeUpdateImages = async () => { setLoading(true); setShowConfirmModal(false); try { showToast(t.saveData); } catch (e) { showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } }; 
             const triggerDeleteAll = () => { setConfirmMessage(t.deleteAll); setConfirmAction(() => executeDeleteAll); setShowConfirmModal(true); };
             
-            // --- UPDATED GITHUB SYNC ---
-            const saveToGitHub = async (updatedProducts) => {
-                const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
-                if (!config.token || !config.owner || !config.repo || !config.path) {
-                    console.warn("GitHub config missing");
-                    return;
+            const getGitHubSyncConfig = () => {
+                const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+                return {
+                    endpoint: String(raw.endpoint || '').trim(),
+                    token: String(raw.token || '').trim(),
+                    owner: String(raw.owner || '').trim(),
+                    repo: String(raw.repo || '').trim(),
+                    path: String(raw.path || '').trim()
+                };
+            };
+
+            const syncIndexHtmlToGitHub = async ({ products: updatedProducts, whatsapp: updatedWhatsapp, message }) => {
+                const config = getGitHubSyncConfig();
+                if (!config.endpoint || !config.owner || !config.repo || !config.path) {
+                    return { ok: false, skipped: true, reason: 'missing-config' };
                 }
 
                 showToast(t.githubSyncing);
-
                 try {
-                    const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
-                    if (!getRes.ok) throw new Error(t.githubError);
-                    
-                    const fileData = await getRes.json();
-                    const currentContent = decodeURIComponent(escape(atob(fileData.content)));
-                    
-                    const startMarker = '/* PRODUCTS_START */';
-                    const endMarker = '/* PRODUCTS_END */';
-                    const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
-                    const endIndex = currentContent.indexOf(endMarker);
-                    
-                    if (startIndex === -1 || endIndex === -1) throw new Error("لا توجد علامات تحديد في الكود");
-                    
-                    const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
-                    const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
-                    
-                    const putRes = await fetch(url, {
-                        method: 'PUT',
-                        headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            message: "Update products from Dashboard",
-                            content: btoa(unescape(encodeURIComponent(newContent))),
-                            sha: fileData.sha
-                        })
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (config.token) headers['Authorization'] = 'Bearer ' + config.token;
+
+                    const payload = {
+                        owner: config.owner,
+                        repo: config.repo,
+                        path: config.path,
+                        message: message || 'Dashboard sync: index.html update',
+                        updates: {}
+                    };
+                    if (Array.isArray(updatedProducts)) payload.updates.products = updatedProducts;
+                    if (typeof updatedWhatsapp !== 'undefined') payload.updates.whatsappNumber = String(updatedWhatsapp).trim();
+
+                    const response = await fetch(config.endpoint, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(payload)
                     });
 
-                    if (!putRes.ok) throw new Error(t.githubError);
-                    showToast(t.githubSuccess);
-                } catch (err) {
-                    console.error("GitHub Sync Error:", err);
-                    showToast(t.githubError, "error");
-                }
-            };
-
-            const saveWhatsappToGitHub = async (updatedWhatsapp) => {
-                const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
-
-                if (!config.token || !config.owner || !config.repo || !config.path) {
-                    showToast('يرجى ضبط إعدادات GitHub أولاً', 'error');
-                    return { ok: false, reason: 'missing-config' };
-                }
-
-                try {
-                    showToast(t.githubSyncing);
-
-                    const baseUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getUrl = `${baseUrl}?t=${Date.now()}`;
-                    const getRes = await fetch(getUrl, {
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Accept': 'application/vnd.github+json',
-                            'Cache-Control': 'no-cache'
+                    if (!response.ok) {
+                        let errorText = '';
+                        try {
+                            const errorData = await response.json();
+                            errorText = errorData?.message || '';
+                        } catch (_) {
+                            errorText = await response.text();
                         }
-                    });
-
-                    if (!getRes.ok) {
-                        throw new Error(`GitHub GET failed: ${getRes.status}`);
-                    }
-
-                    const fileData = await getRes.json();
-                    const normalizedContent = (fileData.content || '').replace(/\n/g, '');
-                    let currentContent = decodeURIComponent(escape(atob(normalizedContent)));
-                    const whatsappRegex = /const\s+DEFAULT_WHATSAPP_NUMBER\s*=\s*['"`][^'"`]*['"`]\s*;/;
-
-                    if (!whatsappRegex.test(currentContent)) {
-                        throw new Error('لم يتم العثور على DEFAULT_WHATSAPP_NUMBER داخل الملف');
-                    }
-
-                    currentContent = currentContent.replace(whatsappRegex, `const DEFAULT_WHATSAPP_NUMBER = '${String(updatedWhatsapp).trim()}';`);
-
-                    const putRes = await fetch(baseUrl, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${config.token}`,
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/vnd.github+json'
-                        },
-                        body: JSON.stringify({
-                            message: 'Dashboard sync: WhatsApp updated',
-                            content: btoa(unescape(encodeURIComponent(currentContent))),
-                            sha: fileData.sha
-                        })
-                    });
-
-                    if (!putRes.ok) {
-                        const errText = await putRes.text();
-                        throw new Error(`GitHub PUT failed: ${putRes.status} ${errText}`);
+                        throw new Error(errorText || `HTTP ${response.status}`);
                     }
 
                     showToast(t.githubSuccess);
                     return { ok: true };
                 } catch (err) {
-                    console.error('GitHub WhatsApp Sync Error:', err);
-                    showToast(err.message || t.githubError, 'error');
-                    return { ok: false, reason: err.message };
+                    console.error('GitHub Sync Error:', err);
+                    showToast(t.githubError, 'error');
+                    return { ok: false, reason: err?.message || 'sync-failed' };
                 }
             };
 
-            const executeDeleteAll = async () => { setShowConfirmModal(false); setLoading(true); try { if(!isOfflineMode) { const promises = products.map(p => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id))); await Promise.all(promises); } else { setProducts([]); localStorage.removeItem(STORAGE_KEYS.PRODUCTS); } const syncResult = await saveToGitHub([]); if (syncResult?.ok) showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
-            const handleSeedData = async () => { setLoading(true); try { if(!isOfflineMode) { for(const p of DEFAULT_PRODUCTS) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), p); } else { setProducts(DEFAULT_PRODUCTS.map(p=>({...p, id: Math.random().toString(36).substr(2,9)}))); } showToast(t.restoreData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
-            const handleProductSubmit = async (e) => { e.preventDefault(); let newProductsList = [...products]; try { if(!isOfflineMode) { if(editingProduct) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', editingProduct.id), formData, {merge:true}); newProductsList = newProductsList.map(p => p.id === editingProduct.id ? {...p, ...formData} : p); } else { const ref = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), formData); newProductsList.push({ id: ref.id, ...formData }); } } else { if(editingProduct) { newProductsList = newProductsList.map(p=>p.id===editingProduct.id?{...p,...formData}:p); } else { newProductsList.push({...formData, id: Math.random().toString(36).substr(2,9)}); } setProducts(newProductsList); } const syncResult = await saveToGitHub(newProductsList); setIsEditing(false); if (syncResult?.ok) showToast(t.saveData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } };
-            const handleDeleteProduct = (product) => { setConfirmMessage(t.delete + '?'); setConfirmAction(() => async () => { try { let newProductsList = products.filter(p => p.id !== product.id); if(!isOfflineMode) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id)); } else { setProducts(newProductsList); } const syncResult = await saveToGitHub(newProductsList); if (syncResult?.ok) showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } setShowConfirmModal(false); }); setShowConfirmModal(true); };
+            const saveToGitHub = async (updatedProducts) => syncIndexHtmlToGitHub({
+                products: updatedProducts,
+                message: 'Dashboard sync: products updated'
+            });
+
+            const saveWhatsappToGitHub = async (updatedWhatsapp) => syncIndexHtmlToGitHub({
+                whatsapp: updatedWhatsapp,
+                message: 'Dashboard sync: WhatsApp updated'
+            });
+
+            const executeDeleteAll = async () => { setShowConfirmModal(false); setLoading(true); try { if(!isOfflineMode) { const promises = products.map(p => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id))); await Promise.all(promises); } else { setProducts([]); localStorage.removeItem(STORAGE_KEYS.PRODUCTS); } await saveToGitHub([]); showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
+            const handleSeedData = async () => { setLoading(true); try { if(!isOfflineMode) { for(const p of DEFAULT_PRODUCTS) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), p); } else { setProducts(DEFAULT_PRODUCTS.map(p=>({...p, id: Math.random().toString(36).substr(2,9)}))); } await saveToGitHub(DEFAULT_PRODUCTS); showToast(t.restoreData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
+            const handleProductSubmit = async (e) => { e.preventDefault(); let newProductsList = [...products]; try { if(!isOfflineMode) { if(editingProduct) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', editingProduct.id), formData, {merge:true}); newProductsList = newProductsList.map(p => p.id === editingProduct.id ? {...p, ...formData} : p); } else { const ref = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), formData); newProductsList.push({ id: ref.id, ...formData }); } } else { if(editingProduct) { newProductsList = newProductsList.map(p=>p.id===editingProduct.id?{...p,...formData}:p); } else { newProductsList.push({...formData, id: Math.random().toString(36).substr(2,9)}); } setProducts(newProductsList); } await saveToGitHub(newProductsList); setIsEditing(false); showToast(t.saveData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } };
+            const handleDeleteProduct = (product) => { setConfirmMessage(t.delete + '?'); setConfirmAction(() => async () => { try { let newProductsList = products.filter(p => p.id !== product.id); if(!isOfflineMode) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id)); } else { setProducts(newProductsList); } await saveToGitHub(newProductsList); showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } setShowConfirmModal(false); }); setShowConfirmModal(true); };
             const handleImageUpload = (e) => { const file = e.target.files[0]; if(file) { if (!file.type.startsWith('image/')) { showToast(t.imageTypeWarning, 'error'); return; } if(file.size > 800 * 1024) { showToast(t.imageSizeWarning, 'error'); return; } const reader = new FileReader(); reader.onloadend = () => setFormData({...formData, imageUrl: reader.result}); reader.readAsDataURL(file); } };
             const handleEditClick = (p) => { setEditingProduct(p); setFormData({name:p.name, category:p.category, duration:p.duration, price:p.price, originalPrice:p.originalPrice||'', usdPrice:p.usdPrice||'', description:p.description, imageUrl:p.imageUrl||'', type:p.type||'bundle'}); setIsEditing(true); };
             const handleAddNewClick = () => { setEditingProduct(null); setFormData({name:'', category:'', duration:'', price:'', originalPrice:'', usdPrice:'', description:'', imageUrl:'', type:'bundle'}); setIsEditing(true); };
@@ -1598,8 +1561,8 @@
                                                     if(!isOfflineMode && db) {
                                                         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config'), { whatsapp: cleanedWhatsapp }, { merge: true });
                                                     }
-                                                    const syncResult = await saveWhatsappToGitHub(cleanedWhatsapp);
-                                                    if (syncResult?.ok) showToast(t.saveData);
+                                                    await saveWhatsappToGitHub(cleanedWhatsapp);
+                                                    showToast(t.saveData);
                                                 } catch (e) {
                                                     showToast(getErrorMessage(e, lang), 'error');
                                                 }
@@ -1613,6 +1576,7 @@
                                 <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
                                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-white"><Github size={20}/> {t.githubSettings}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <input type="url" value={githubConfig.endpoint || ''} onChange={e => setGithubConfig({...githubConfig, endpoint: e.target.value})} className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white md:col-span-2" placeholder={t.githubEndpoint} />
                                         <input type="password" value={githubConfig.token} onChange={e => setGithubConfig({...githubConfig, token: e.target.value})} className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder={t.githubToken} />
                                         <input type="text" value={githubConfig.owner} onChange={e => setGithubConfig({...githubConfig, owner: e.target.value})} className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder={t.githubOwner} />
                                         <input type="text" value={githubConfig.repo} onChange={e => setGithubConfig({...githubConfig, repo: e.target.value})} className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder={t.githubRepo} />
@@ -1623,7 +1587,7 @@
                                         <button 
                                             onClick={() => {
                                                 localStorage.setItem(STORAGE_KEYS.GITHUB_CONFIG, JSON.stringify(githubConfig));
-                                                showToast('تم حفظ إعدادات GitHub بنجاح!');
+                                                showToast(t.githubConfigSaved);
                                             }}
                                             className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition"
                                         >
