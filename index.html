@@ -1344,30 +1344,31 @@ const currentContent = decodeURIComponent(escape(atob(base64Clean)));
                     const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
                     
                     // جلب أحدث SHA للملف لتجنب خطأ 409 Conflict
-    let currentSha = fileData ? fileData.sha : null;
-    try {
-        const getRes = await fetch(url, { 
-            method: 'GET',
-            headers: { 'Authorization': `token ${config.token}` } 
-        });
-        if (getRes.ok) {
-            const freshData = await getRes.json();
-            currentSha = freshData.sha;
-        }
-    } catch (e) {
-        console.warn("Could not fetch fresh SHA", e);
-    }
-
-    // إرسال التحديث مع الـ SHA الجديد
-    const putRes = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-    message: "Update products from Dashboard",
-    content: btoa(unescape(encodeURIComponent(newContent))),
-    sha: currentSha // <-- هذا السطر ضروري لمنع خطأ 409
-})
+    // جلب أحدث SHA للملف لتجنب خطأ 409 Conflict
+let latestSha = fileData ? fileData.sha : null;
+try {
+    const getRes = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `token ${config.token}` }
     });
+    if (getRes.ok) {
+        const freshData = await getRes.json();
+        latestSha = freshData.sha;
+    }
+} catch (e) {
+    console.warn("Could not fetch fresh SHA", e);
+}
+
+// إرسال التحديث مع الـ SHA الجديد
+const putRes = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        message: "Update products from Dashboard",
+        content: btoa(unescape(encodeURIComponent(newContent))),
+        sha: latestSha
+    })
+});
 
                     if (!putRes.ok) throw new Error(t.githubError);
                     showToast(t.githubSuccess);
