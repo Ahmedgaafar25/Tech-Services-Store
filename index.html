@@ -1340,15 +1340,31 @@
                     const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
                     const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
                     
-                    const putRes = await fetch(url, {
-                        method: 'PUT',
-                        headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            message: "Update products from Dashboard",
-                            content: btoa(unescape(encodeURIComponent(newContent))),
-                            sha: fileData.sha
-                        })
-                    });
+                    // جلب أحدث SHA للملف لتجنب خطأ 409 Conflict
+    let currentSha = fileData ? fileData.sha : null;
+    try {
+        const getRes = await fetch(url, { 
+            method: 'GET',
+            headers: { 'Authorization': `token ${config.token}` } 
+        });
+        if (getRes.ok) {
+            const freshData = await getRes.json();
+            currentSha = freshData.sha;
+        }
+    } catch (e) {
+        console.warn("Could not fetch fresh SHA", e);
+    }
+
+    // إرسال التحديث مع الـ SHA الجديد
+    const putRes = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: "Update products from Dashboard",
+            content: btoa(unescape(encodeURIComponent(newContent))),
+            sha: currentSha
+        })
+    });
 
                     if (!putRes.ok) throw new Error(t.githubError);
                     showToast(t.githubSuccess);
