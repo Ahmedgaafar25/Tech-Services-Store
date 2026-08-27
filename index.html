@@ -1327,8 +1327,11 @@
                     const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
                     if (!getRes.ok) throw new Error(t.githubError);
                     
-                    const fileData = await getRes.json();
-                    const currentContent = decodeURIComponent(escape(atob(fileData.content)));
+                   const fileData = await getRes.json();
+const currentSha = fileData.sha; // استخراج الـ sha لرفعه لاحقاً
+
+const base64Clean = fileData.content.replace(/\s/g, ''); // تنظيف المسافات من النص المشفر
+const currentContent = decodeURIComponent(escape(atob(base64Clean)));
                     
                     const startMarker = '/* PRODUCTS_START */';
                     const endMarker = '/* PRODUCTS_END */';
@@ -1360,10 +1363,10 @@
         method: 'PUT',
         headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            message: "Update products from Dashboard",
-            content: btoa(unescape(encodeURIComponent(newContent))),
-            sha: currentSha
-        })
+    message: "Update products from Dashboard",
+    content: btoa(unescape(encodeURIComponent(newContent))),
+    sha: currentSha // <-- هذا السطر ضروري لمنع خطأ 409
+})
     });
 
                     if (!putRes.ok) throw new Error(t.githubError);
