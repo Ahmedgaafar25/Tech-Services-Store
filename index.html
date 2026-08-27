@@ -1337,7 +1337,7 @@
         const currentSha = fileData.sha;
 
         // 2. قراءة محتوى الملف كنص خام (Raw Text) لتجنب مشاكل التشفير وحجم الصور
-        const rawRes = await fetch(fileData.download_url);
+        const rawRes = await fetch(fileData.download_url, { cache: 'no-store' });
         const currentContent = await rawRes.text();
 
         // 3. تحديد العلامات المرجعية
