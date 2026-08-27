@@ -1378,24 +1378,6 @@
     }
 };
 
-// إرسال التحديث مع الـ SHA الجديد
-const putRes = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        message: "Update products from Dashboard",
-        content: btoa(unescape(encodeURIComponent(newContent))),
-        sha: latestSha
-    })
-});
-
-                    if (!putRes.ok) throw new Error(t.githubError);
-                    showToast(t.githubSuccess);
-                } catch (err) {
-                    console.error("GitHub Sync Error:", err);
-                    showToast(t.githubError, "error");
-                }
-            };
 
             const saveWhatsappToGitHub = async (updatedWhatsapp) => {
                 const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
