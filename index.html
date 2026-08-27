@@ -1313,51 +1313,70 @@
             const triggerDeleteAll = () => { setConfirmMessage(t.deleteAll); setConfirmAction(() => executeDeleteAll); setShowConfirmModal(true); };
             
             // --- UPDATED GITHUB SYNC ---
-            const saveToGitHub = async (updatedProducts) => {
-                const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
-                if (!config.token || !config.owner || !config.repo || !config.path) {
-                    console.warn("GitHub config missing");
-                    return;
-                }
-
-                showToast(t.githubSyncing);
-
-                try {
-                    const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
-                    const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
-                    if (!getRes.ok) throw new Error(t.githubError);
-                    
-                   const fileData = await getRes.json();
-const currentSha = fileData.sha; // استخراج الـ sha لرفعه لاحقاً
-
-const base64Clean = fileData.content.replace(/\s/g, ''); // تنظيف المسافات من النص المشفر
-const currentContent = decodeURIComponent(escape(atob(base64Clean)));
-                    
-                    const startMarker = '/* PRODUCTS_START */';
-                    const endMarker = '/* PRODUCTS_END */';
-                    const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
-                    const endIndex = currentContent.indexOf(endMarker);
-                    
-                    if (startIndex === -1 || endIndex === -1) throw new Error("لا توجد علامات تحديد في الكود");
-                    
-                    const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n    `;
-                    const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
-                    
-                    // جلب أحدث SHA للملف لتجنب خطأ 409 Conflict
-    // جلب أحدث SHA للملف لتجنب خطأ 409 Conflict
-let latestSha = fileData ? fileData.sha : null;
-try {
-    const getRes = await fetch(url, {
-        method: 'GET',
-        headers: { 'Authorization': `token ${config.token}` }
-    });
-    if (getRes.ok) {
-        const freshData = await getRes.json();
-        latestSha = freshData.sha;
+           const saveToGitHub = async (updatedProducts) => {
+    const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+    if (!config.token || !config.owner || !config.repo || !config.path) {
+        console.warn("GitHub config missing");
+        return;
     }
-} catch (e) {
-    console.warn("Could not fetch fresh SHA", e);
-}
+
+    showToast(t.githubSyncing);
+
+    const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
+
+    try {
+        // 1. جلب بيانات الملف للحصول على الـ SHA ورابط التحميل
+        const getRes = await fetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': `token ${config.token}` }
+        });
+
+        if (!getRes.ok) throw new Error("فشل قراءة الملف من GitHub.");
+
+        const fileData = await getRes.json();
+        const currentSha = fileData.sha;
+
+        // 2. قراءة محتوى الملف كنص خام (Raw Text) لتجنب مشاكل التشفير وحجم الصور
+        const rawRes = await fetch(fileData.download_url);
+        const currentContent = await rawRes.text();
+
+        // 3. تحديد العلامات المرجعية
+        const startMarker = "/* PRODUCTS_START */";
+        const endMarker = "/* PRODUCTS_END */";
+
+        const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
+        const endIndex = currentContent.indexOf(endMarker);
+
+        if (startIndex === -1 || endIndex === -1) {
+            throw new Error("لا توجد علامات تحديد في الكود المجلوب");
+        }
+
+        // 4. استبدال مصفوفة المنتجات
+        const newProductsBlock = `\n        const DEFAULT_PRODUCTS = ${JSON.stringify(updatedProducts, null, 4)};\n        `;
+        const newContent = currentContent.slice(0, startIndex) + newProductsBlock + currentContent.slice(endIndex);
+
+        // 5. رفع الكود المحدث مع الـ sha
+        const putRes = await fetch(url, {
+            method: 'PUT',
+            headers: { 
+                'Authorization': `token ${config.token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({
+                message: "Update products from Dashboard",
+                content: btoa(unescape(encodeURIComponent(newContent))),
+                sha: currentSha
+            })
+        });
+
+        if (!putRes.ok) throw new Error(t.githubError);
+        showToast(t.githubSuccess);
+        
+    } catch (err) {
+        console.error("GitHub Sync Error:", err);
+        showToast(t.githubError, "error");
+    }
+};
 
 // إرسال التحديث مع الـ SHA الجديد
 const putRes = await fetch(url, {
