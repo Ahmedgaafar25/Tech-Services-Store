@@ -81,7 +81,8 @@
             GITHUB_CONFIG: 'githubConfig',
             DARK_MODE: 'darkMode',
             VISITED: 'visited',
-            USER_COUNTRY: 'user_country_code'
+            USER_COUNTRY: 'user_country_code',
+            SLIDES: 'tech_store_slides_v1'
         };
 
         const firebaseConfig = {
@@ -184,6 +185,25 @@
                 loginError: "كود المرور غير صحيح",
                 permissionDenied: "ليس لديك صلاحية للقيام بهذا الإجراء",
                 serviceUnavailable: "الخدمة غير متوفرة حالياً",
+                unavailable: "العرض غير متاح",
+                markUnavailable: "إنهاء العرض (غير متاح)",
+                markAvailable: "إعادة تفعيل العرض",
+                unavailableMsg: "عذراً، هذا العرض غير متاح حالياً",
+                manageSlides: "إدارة سلايدر العروض",
+                addSlide: "إضافة سلايد",
+                slideTitle: "عنوان السلايد (عربي)",
+                slideTitleEn: "عنوان السلايد (إنجليزي)",
+                slideSubtitle: "الوصف (عربي)",
+                slideSubtitleEn: "الوصف (إنجليزي)",
+                slideImage: "رابط الصورة",
+                slideProduct: "ربط بمنتج (اختياري)",
+                noProduct: "-- بدون منتج --",
+                viewOffer: "شاهد العرض",
+                editSlide: "تعديل السلايد",
+                updateSlide: "حفظ التعديلات",
+                cancelEdit: "إلغاء",
+                moveUp: "تحريك لأعلى",
+                moveDown: "تحريك لأسفل",
                 unexpectedError: "حدث خطأ غير متوقع",
                 githubSettings: "ربط وتحديث GitHub تلقائياً",
                 githubToken: "رمز الدخول الشخصي (GitHub Token)",
@@ -278,6 +298,25 @@
                 loginError: "Incorrect access code",
                 permissionDenied: "Permission denied",
                 serviceUnavailable: "Unavailable",
+                unavailable: "Offer Unavailable",
+                markUnavailable: "End offer (unavailable)",
+                markAvailable: "Re-activate offer",
+                unavailableMsg: "Sorry, this offer is currently unavailable",
+                manageSlides: "Offers Slider Management",
+                addSlide: "Add Slide",
+                slideTitle: "Slide title (Arabic)",
+                slideTitleEn: "Slide title (English)",
+                slideSubtitle: "Subtitle (Arabic)",
+                slideSubtitleEn: "Subtitle (English)",
+                slideImage: "Image URL",
+                slideProduct: "Link to product (optional)",
+                noProduct: "-- No product --",
+                viewOffer: "View Offer",
+                editSlide: "Edit Slide",
+                updateSlide: "Save Changes",
+                cancelEdit: "Cancel",
+                moveUp: "Move up",
+                moveDown: "Move down",
                 unexpectedError: "Error",
                 githubSettings: "GitHub Sync",
                 githubToken: "Token",
@@ -300,6 +339,15 @@
         };
 
         /* PRODUCTS_START */
+        /* SLIDES_START */
+        const DEFAULT_SLIDES = [
+            { id: 'slide1', title: 'عروض حصرية 🔥', title_en: 'Exclusive Offers 🔥', subtitle: 'خصومات تصل إلى 70% على جميع الاشتراكات', subtitle_en: 'Up to 70% off all subscriptions', imageUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&q=80', productId: '' },
+            { id: 'slide2', title: 'اشتراكات أصلية 100%', title_en: '100% Original Subscriptions', subtitle: 'Microsoft, Adobe, ChatGPT وأكثر بضمان كامل', subtitle_en: 'Microsoft, Adobe, ChatGPT & more with full warranty', imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&q=80', productId: '' },
+            { id: 'slide3', title: 'تفعيل فوري ⚡', title_en: 'Instant Activation ⚡', subtitle: 'استلم اشتراكك خلال دقائق من الطلب', subtitle_en: 'Receive your subscription within minutes', imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80', productId: '' },
+            { id: 'slide4', title: 'دعم فني 24/7', title_en: '24/7 Support', subtitle: 'فريقنا معك في أي وقت', subtitle_en: 'Our team is with you anytime', imageUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&q=80', productId: '' }
+        ];
+        /* SLIDES_END */
+
         const DEFAULT_PRODUCTS = [
 
 
@@ -864,9 +912,14 @@
                     onClick={() => onViewDetails(product)}
                     className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition duration-300 border border-slate-100 dark:border-slate-700 flex flex-col h-full group cursor-pointer relative animate-fade-in"
                 >
-                    {product.originalPrice && (
+                    {product.originalPrice && !product.unavailable && (
                          <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10 animate-pulse">
                             {t.offer}
+                        </div>
+                    )}
+                    {product.unavailable && (
+                        <div className="absolute top-3 left-3 bg-slate-700 dark:bg-slate-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10">
+                            {t.unavailable}
                         </div>
                     )}
 
@@ -875,7 +928,7 @@
                             <img 
                                 src={product.imageUrl} 
                                 alt={content.name} 
-                                className="object-contain w-full h-full transform group-hover:scale-110 transition duration-500"
+                                className={`object-contain w-full h-full transform group-hover:scale-110 transition duration-500 ${product.unavailable ? 'grayscale opacity-50' : ''}`}
                                 onError={() => setImageError(true)}
                                 loading="lazy"
                             />
@@ -914,9 +967,9 @@
                             {content.description}
                         </p>
 
-                        <button className="w-full bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white py-3 rounded-xl font-bold hover:bg-slate-100 dark:hover:bg-slate-600 transition flex items-center justify-center gap-2 mt-auto border border-slate-200 dark:border-slate-600">
-                            <span>{t.viewDetails}</span>
-                            {lang === 'ar' ? <ArrowLeftRight className="w-4 h-4 rotate-180" /> : <ArrowRight className="w-4 h-4" />}
+                        <button disabled={product.unavailable} className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 mt-auto border ${product.unavailable ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed' : 'bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-600 border-slate-200 dark:border-slate-600'}`}>
+                            <span>{product.unavailable ? t.unavailable : t.viewDetails}</span>
+                            {!product.unavailable && (lang === 'ar' ? <ArrowLeftRight className="w-4 h-4 rotate-180" /> : <ArrowRight className="w-4 h-4" />)}
                         </button>
                     </div>
                 </article>
@@ -1093,9 +1146,9 @@
                                      {pricing.original && <p className="text-sm text-gray-400 dark:text-gray-500 line-through">{pricing.original}</p>}
                                 </div>
                             </div>
-                            <button onClick={handleOrderClick} className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-blue-600 dark:hover:bg-blue-600 text-white dark:text-slate-900 dark:hover:text-white text-lg font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-                                <span>{t.orderNow}</span>
-                                <MessageCircle className="w-5 h-5" />
+                            <button onClick={handleOrderClick} disabled={product.unavailable} className={`flex-1 text-lg font-bold py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${product.unavailable ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-slate-900 dark:bg-slate-100 hover:bg-blue-600 dark:hover:bg-blue-600 text-white dark:text-slate-900 dark:hover:text-white'}`}>
+                                <span>{product.unavailable ? t.unavailableMsg : t.orderNow}</span>
+                                {!product.unavailable && <MessageCircle className="w-5 h-5" />}
                             </button>
                         </div>
                     </div>
@@ -1103,13 +1156,48 @@
             );
         };
 
-        const AdminProductItem = ({ product, onDelete, onEdit, lang }) => (
+        const HeroCarousel = ({ slides, lang, onSlideClick }) => {
+            const [current, setCurrent] = useState(0);
+            const count = slides.length;
+            useEffect(() => {
+                if (count <= 1) return;
+                const timer = setInterval(() => setCurrent(prev => (prev + 1) % count), 5000);
+                return () => clearInterval(timer);
+            }, [count]);
+            if (!count) return null;
+            const t = translations[lang];
+            const goTo = (i) => setCurrent((i + count) % count);
+            return (
+                <div className="relative w-full h-64 md:h-96 rounded-3xl overflow-hidden shadow-xl mb-10 group animate-fade-in" dir="ltr">
+                    {slides.map((slide, i) => (
+                        <div key={slide.id || i} className={`absolute inset-0 transition-opacity duration-700 ${i === current ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+                            {slide.imageUrl && <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
+                            <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="absolute bottom-0 left-0 right-0 p-6 md:p-10 text-white text-center">
+                                <h2 className="text-2xl md:text-4xl font-black mb-2 drop-shadow-lg">{(lang === 'en' && slide.title_en) ? slide.title_en : slide.title}</h2>
+                                {slide.subtitle && <p className="text-sm md:text-lg text-slate-200 mb-4 drop-shadow">{(lang === 'en' && slide.subtitle_en) ? slide.subtitle_en : slide.subtitle}</p>}
+                                <button onClick={() => onSlideClick(slide)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition text-sm md:text-base">{t.viewOffer}</button>
+                            </div>
+                        </div>
+                    ))}
+                    {count > 1 && <>
+                        <button onClick={() => goTo(current - 1)} aria-label="prev" className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-black/60 text-white w-10 h-10 rounded-full flex items-center justify-center text-2xl transition opacity-0 group-hover:opacity-100">&#8249;</button>
+                        <button onClick={() => goTo(current + 1)} aria-label="next" className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-black/60 text-white w-10 h-10 rounded-full flex items-center justify-center text-2xl transition opacity-0 group-hover:opacity-100">&#8250;</button>
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                            {slides.map((_, i) => <button key={i} onClick={() => goTo(i)} aria-label={'slide ' + (i+1)} className={`w-2.5 h-2.5 rounded-full transition ${i === current ? 'bg-white scale-110' : 'bg-white/40 hover:bg-white/70'}`} />)}
+                        </div>
+                    </>}
+                </div>
+            );
+        };
+
+        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, lang }) => (
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center gap-4">
                 <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 flex-shrink-0 overflow-hidden flex items-center justify-center p-2">
                     {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-contain" /> : <ImageIcon className="w-full h-full text-slate-300 dark:text-slate-500" />}
                 </div>
                 <div className="flex-grow text-center md:text-right">
-                    <h4 className="font-bold text-slate-900 dark:text-white">{product.name}</h4>
+                    <h4 className="font-bold text-slate-900 dark:text-white">{product.name} {product.unavailable && <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">{translations[lang].unavailable}</span>}</h4>
                     <div className="flex items-center justify-center md:justify-end gap-2 mt-1">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${product.type === 'single' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                             {product.type === 'single' ? translations[lang].single : translations[lang].bundle}
@@ -1119,6 +1207,7 @@
                     <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-1">{product.price}</div>
                 </div>
                 <div className="flex gap-2">
+                    <button aria-label={product.unavailable ? translations[lang].markAvailable : translations[lang].markUnavailable} title={product.unavailable ? translations[lang].markAvailable : translations[lang].markUnavailable} onClick={() => onToggleUnavailable(product)} className={`px-2 py-1 text-xs font-bold rounded-lg transition whitespace-nowrap ${product.unavailable ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100' : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'}`}>{product.unavailable ? '✅ ' + translations[lang].markAvailable : '🚫 ' + translations[lang].markUnavailable}</button>
                     <button aria-label={translations[lang].edit} onClick={() => onEdit(product)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition"><Edit className="w-5 h-5" /></button>
                     <button aria-label={translations[lang].delete} onClick={() => onDelete(product)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"><Trash2 className="w-5 h-5" /></button>
                 </div>
@@ -1138,6 +1227,9 @@
             const [notification, setNotification] = useState(null);
             
             const [selectedProduct, setSelectedProduct] = useState(null);
+            const [slides, setSlides] = useState(DEFAULT_SLIDES);
+            const [slideForm, setSlideForm] = useState({ title: '', title_en: '', subtitle: '', subtitle_en: '', imageUrl: '', productId: '' });
+            const [editingSlideId, setEditingSlideId] = useState(null);
             
             const [showConfirmModal, setShowConfirmModal] = useState(false);
             const [confirmMessage, setConfirmMessage] = useState('');
@@ -1485,6 +1577,83 @@
             const executeDeleteAll = async () => { setShowConfirmModal(false); setLoading(true); try { if(!isOfflineMode) { const promises = products.map(p => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id))); await Promise.all(promises); } else { setProducts([]); localStorage.removeItem(STORAGE_KEYS.PRODUCTS); } const syncResult = await saveToGitHub([]); if (syncResult?.ok) showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
             const handleSeedData = async () => { setLoading(true); try { if(!isOfflineMode) { for(const p of DEFAULT_PRODUCTS) await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), p); } else { setProducts(DEFAULT_PRODUCTS.map(p=>({...p, id: Math.random().toString(36).substr(2,9)}))); } showToast(t.restoreData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } finally { setLoading(false); } };
             const handleProductSubmit = async (e) => { e.preventDefault(); let newProductsList = [...products]; try { if(!isOfflineMode) { if(editingProduct) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', editingProduct.id), formData, {merge:true}); newProductsList = newProductsList.map(p => p.id === editingProduct.id ? {...p, ...formData} : p); } else { const ref = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), formData); newProductsList.push({ id: ref.id, ...formData }); } } else { if(editingProduct) { newProductsList = newProductsList.map(p=>p.id===editingProduct.id?{...p,...formData}:p); } else { newProductsList.push({...formData, id: Math.random().toString(36).substr(2,9)}); } setProducts(newProductsList); } const syncResult = await saveToGitHub(newProductsList); setIsEditing(false); if (syncResult?.ok) showToast(t.saveData); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } };
+            const saveSlidesToGitHub = async (updatedSlides) => {
+                const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.GITHUB_CONFIG) || '{}');
+                if (!config.token || !config.owner || !config.repo || !config.path) return;
+                showToast(t.githubSyncing);
+                const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${config.path}`;
+                try {
+                    const getRes = await fetch(url, { headers: { 'Authorization': `token ${config.token}` } });
+                    if (!getRes.ok) throw new Error('read fail');
+                    const fileData = await getRes.json();
+                    const rawRes = await fetch(fileData.download_url, { cache: 'no-store' });
+                    const currentContent = await rawRes.text();
+                    const startMarker = '/* SLIDES_START */'; const endMarker = '/* SLIDES_END */';
+                    const startIndex = currentContent.indexOf(startMarker) + startMarker.length;
+                    const endIndex = currentContent.indexOf(endMarker);
+                    if (startIndex < startMarker.length || endIndex === -1) throw new Error('markers missing');
+                    const newBlock = `\n        const DEFAULT_SLIDES = ${JSON.stringify(updatedSlides, null, 4)};\n        `;
+                    const newContent = currentContent.slice(0, startIndex) + newBlock + currentContent.slice(endIndex);
+                    const putRes = await fetch(url, { method: 'PUT', headers: { 'Authorization': `token ${config.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Update slider from Dashboard', content: btoa(unescape(encodeURIComponent(newContent))), sha: fileData.sha }) });
+                    if (!putRes.ok) throw new Error('put fail');
+                    showToast(t.githubSuccess);
+                } catch (err) { console.error('GitHub Slides Sync Error:', err); showToast(t.githubError, 'error'); }
+            };
+
+            const handleSaveSlides = async (updatedSlides) => {
+                setSlides(updatedSlides);
+                localStorage.setItem(STORAGE_KEYS.SLIDES, JSON.stringify(updatedSlides));
+                try {
+                    if (!isOfflineMode && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config'), { slides: updatedSlides }, { merge: true });
+                    await saveSlidesToGitHub(updatedSlides);
+                    showToast(t.saveData);
+                } catch (e) { showToast(getErrorMessage(e, lang), 'error'); }
+            };
+
+            const handleSaveSlide = () => {
+                if (!slideForm.title) return;
+                let updated;
+                if (editingSlideId) {
+                    updated = slides.map(s => s.id === editingSlideId ? { ...s, ...slideForm } : s);
+                } else {
+                    if (slides.length >= 5) return;
+                    updated = [...slides, { ...slideForm, id: 'slide_' + Date.now() }];
+                }
+                handleSaveSlides(updated);
+                setSlideForm({ title: '', title_en: '', subtitle: '', subtitle_en: '', imageUrl: '', productId: '' });
+                setEditingSlideId(null);
+            };
+
+            const handleEditSlide = (slide) => {
+                setSlideForm({ title: slide.title || '', title_en: slide.title_en || '', subtitle: slide.subtitle || '', subtitle_en: slide.subtitle_en || '', imageUrl: slide.imageUrl || '', productId: slide.productId || '' });
+                setEditingSlideId(slide.id);
+            };
+
+            const handleCancelEditSlide = () => {
+                setSlideForm({ title: '', title_en: '', subtitle: '', subtitle_en: '', imageUrl: '', productId: '' });
+                setEditingSlideId(null);
+            };
+
+            const handleMoveSlide = (id, dir) => {
+                const idx = slides.findIndex(s => s.id === id);
+                const target = idx + dir;
+                if (idx === -1 || target < 0 || target >= slides.length) return;
+                const updated = [...slides];
+                [updated[idx], updated[target]] = [updated[target], updated[idx]];
+                handleSaveSlides(updated);
+            };
+
+            const handleDeleteSlide = (id) => { handleSaveSlides(slides.filter(s => s.id !== id)); };
+
+            const handleSlideClick = (slide) => {
+                if (slide.productId) {
+                    const linked = products.find(p => p.id === slide.productId);
+                    if (linked) { openProductLink(linked); return; }
+                }
+                document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            const handleToggleUnavailable = async (product) => { const updated = { ...product, unavailable: !product.unavailable }; const newProductsList = products.map(p => p.id === product.id ? updated : p); try { if(!isOfflineMode) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id), { unavailable: updated.unavailable }, { merge: true }); } setProducts(newProductsList); const syncResult = await saveToGitHub(newProductsList); showToast(updated.unavailable ? t.markUnavailable : t.markAvailable); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } };
             const handleDeleteProduct = (product) => { setConfirmMessage(t.delete + '?'); setConfirmAction(() => async () => { try { let newProductsList = products.filter(p => p.id !== product.id); if(!isOfflineMode) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id)); } else { setProducts(newProductsList); } const syncResult = await saveToGitHub(newProductsList); if (syncResult?.ok) showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } setShowConfirmModal(false); }); setShowConfirmModal(true); };
             const handleImageUpload = (e) => { const file = e.target.files[0]; if(file) { if (!file.type.startsWith('image/')) { showToast(t.imageTypeWarning, 'error'); return; } if(file.size > 800 * 1024) { showToast(t.imageSizeWarning, 'error'); return; } const reader = new FileReader(); reader.onloadend = () => setFormData({...formData, imageUrl: reader.result}); reader.readAsDataURL(file); } };
             const handleEditClick = (p) => { setEditingProduct(p); setFormData({name:p.name, category:p.category, duration:p.duration, price:p.price, originalPrice:p.originalPrice||'', usdPrice:p.usdPrice||'', description:p.description, imageUrl:p.imageUrl||'', type:p.type||'bundle'}); setIsEditing(true); };
@@ -1567,11 +1736,12 @@
                         setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS); 
                         forceOffline();
                     });
-                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); });
+                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(docSnap.data().slides); });
                     return () => { unsubProducts(); unsubSettings(); };
                 } else {
                     setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS);
                     if (localStorage.getItem(STORAGE_KEYS.WHATSAPP)) setWhatsappNumber(localStorage.getItem(STORAGE_KEYS.WHATSAPP)); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER);
+                    setSlides(JSON.parse(localStorage.getItem(STORAGE_KEYS.SLIDES)) || DEFAULT_SLIDES);
                     setLoading(false);
                 }
             }, [user, isOfflineMode]);
@@ -1693,8 +1863,48 @@
                                 </div>
                             </section>
                             <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-white"><ImageIcon size={20}/> {t.manageSlides}</h2>
+                                <div className="space-y-3 mb-6">
+                                    {slides.map(slide => (
+                                        <div key={slide.id} className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                                            <div className="w-20 h-12 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center">
+                                                {slide.imageUrl ? <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-400" />}
+                                            </div>
+                                            <div className="flex-grow min-w-0">
+                                                <p className="font-bold text-slate-900 dark:text-white truncate">{slide.title}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{slide.subtitle}</p>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <button aria-label={translations[lang].moveUp} title={translations[lang].moveUp} onClick={() => handleMoveSlide(slide.id, -1)} className="p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition leading-none">&#9650;</button>
+                                                <button aria-label={translations[lang].moveDown} title={translations[lang].moveDown} onClick={() => handleMoveSlide(slide.id, 1)} className="p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition leading-none">&#9660;</button>
+                                            </div>
+                                            <button aria-label={translations[lang].edit} onClick={() => handleEditSlide(slide)} className={`p-2 rounded-lg transition ${editingSlideId === slide.id ? 'bg-blue-600 text-white' : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'}`}><Edit className="w-5 h-5" /></button>
+                                            <button onClick={() => handleDeleteSlide(slide.id)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"><Trash2 className="w-5 h-5" /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="border-t border-slate-200 dark:border-slate-700 pt-6 space-y-3">
+                                    <h3 className="font-bold text-slate-700 dark:text-slate-300">{editingSlideId ? t.editSlide : t.addSlide}</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <input placeholder={t.slideTitle} value={slideForm.title} onChange={e => setSlideForm({...slideForm, title: e.target.value})} className="w-full p-2.5 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                        <input dir="ltr" placeholder={t.slideTitleEn} value={slideForm.title_en} onChange={e => setSlideForm({...slideForm, title_en: e.target.value})} className="w-full p-2.5 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                        <input placeholder={t.slideSubtitle} value={slideForm.subtitle} onChange={e => setSlideForm({...slideForm, subtitle: e.target.value})} className="w-full p-2.5 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                        <input dir="ltr" placeholder={t.slideSubtitleEn} value={slideForm.subtitle_en} onChange={e => setSlideForm({...slideForm, subtitle_en: e.target.value})} className="w-full p-2.5 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                        <input dir="ltr" type="url" placeholder={t.slideImage + ' (https://...)'} value={slideForm.imageUrl} onChange={e => setSlideForm({...slideForm, imageUrl: e.target.value})} className="w-full p-2.5 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                        <select value={slideForm.productId} onChange={e => setSlideForm({...slideForm, productId: e.target.value})} className="w-full p-2.5 border rounded-lg bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white">
+                                            <option value="">{t.slideProduct}: {t.noProduct}</option>
+                                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={handleSaveSlide} disabled={!slideForm.title || (!editingSlideId && slides.length >= 5)} className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed">{editingSlideId ? t.updateSlide : t.addSlide + ' (' + slides.length + '/5)'}</button>
+                                        {editingSlideId && <button onClick={handleCancelEditSlide} className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition">{t.cancelEdit}</button>}
+                                    </div>
+                                </div>
+                            </section>
+                            <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                 <div className="flex justify-between mb-6"><h2 className="text-lg font-bold text-slate-900 dark:text-white">{t.manageProducts}</h2><button onClick={handleAddNewClick} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">{t.addNew}</button></div>
-                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} lang={lang}/>)}</div>}
+                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} lang={lang}/>)}</div>}
                             </section>
                         </div>
                         {isEditing && (
@@ -1816,7 +2026,10 @@
                         <ProductDetailsPage product={selectedProduct} onBack={handleCloseProduct} onOrder={openWhatsapp} countryCode={countryCode} onProductSelect={openProductLink} allProducts={products.length>0?products:DEFAULT_PRODUCTS} lang={lang} onShare={handleShare} />
                     ) : (
                         <>
-                            <header className="py-20 text-center container mx-auto px-4 animate-fade-in relative">
+                            <div className="container mx-auto px-4 pt-8">
+                                <HeroCarousel slides={slides} lang={lang} onSlideClick={handleSlideClick} />
+                            </div>
+                            <header className="py-12 text-center container mx-auto px-4 animate-fade-in relative">
                                 <span className="inline-block bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-1.5 rounded-full text-sm font-bold mb-6 border border-blue-100 dark:border-blue-800 animate-fade-in">
                                     {t.bestValue}
                                 </span>
