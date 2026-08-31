@@ -1028,9 +1028,9 @@
         "category": "Security",
         "duration": "3 شهور",
         "duration_en": "3 Months",
-        "price": "349",
+        "price": "0",
         "originalPrice": "",
-        "usdPrice": "10",
+        "usdPrice": "",
         "type": "single",
         "imageUrl": "https://sspark.genspark.ai/cfimages?u1=Hppd9yI9W%2FnU2gmDLrDkIjy58fSfKCTP1VtnXkt%2Fe1xauckHgZqMaGbsx3J%2Bj%2BdO65Q7TZyuLkxwIX6876SowKK%2BKAmUMQK63GHKRpDmZF4es7Ha3fViJydL6CM%3D&u2=T3joCOVRhraJGlW8&width=2560",
         "description": "اشتراك Avira Prime الرسمي لمدة 3 شهور — حماية شاملة متكاملة (انتي فيروس + VPN بلا حدود + منظف ومسرّع للجهاز + مدير كلمات مرور) تعمل على Windows و Mac و iOS و Android والمتصفحات، باشتراك واحد يغطي حتى 5 أجهزة.",
@@ -1472,7 +1472,7 @@
             );
         };
 
-        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, lang }) => (
+        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, onMove, isFirst, isLast, lang }) => (
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center gap-4">
                 <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 flex-shrink-0 overflow-hidden flex items-center justify-center p-2">
                     {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-contain" /> : <ImageIcon className="w-full h-full text-slate-300 dark:text-slate-500" />}
@@ -1488,6 +1488,10 @@
                     <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-1">{product.price}</div>
                 </div>
                 <div className="flex gap-2">
+                    <div className="flex flex-col gap-1">
+                        <button aria-label={translations[lang].moveUp} title={translations[lang].moveUp} disabled={isFirst} onClick={() => onMove(product.id, -1)} className="p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition leading-none disabled:opacity-30 disabled:cursor-not-allowed">&#9650;</button>
+                        <button aria-label={translations[lang].moveDown} title={translations[lang].moveDown} disabled={isLast} onClick={() => onMove(product.id, 1)} className="p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition leading-none disabled:opacity-30 disabled:cursor-not-allowed">&#9660;</button>
+                    </div>
                     <button aria-label={product.unavailable ? translations[lang].markAvailable : translations[lang].markUnavailable} title={product.unavailable ? translations[lang].markAvailable : translations[lang].markUnavailable} onClick={() => onToggleUnavailable(product)} className={`px-2 py-1 text-xs font-bold rounded-lg transition whitespace-nowrap ${product.unavailable ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100' : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'}`}>{product.unavailable ? '✅ ' + translations[lang].markAvailable : '🚫 ' + translations[lang].markUnavailable}</button>
                     <button aria-label={translations[lang].edit} onClick={() => onEdit(product)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition"><Edit className="w-5 h-5" /></button>
                     <button aria-label={translations[lang].delete} onClick={() => onDelete(product)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"><Trash2 className="w-5 h-5" /></button>
@@ -1934,6 +1938,20 @@
                 document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
             };
 
+            const handleMoveProduct = async (id, dir) => {
+                const idx = products.findIndex(p => p.id === id);
+                const target = idx + dir;
+                if (idx === -1 || target < 0 || target >= products.length) return;
+                const updated = [...products];
+                [updated[idx], updated[target]] = [updated[target], updated[idx]];
+                setProducts(updated);
+                try {
+                    if (!isOfflineMode && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config'), { productsOrder: updated.map(p => p.id) }, { merge: true });
+                    await saveToGitHub(updated);
+                    showToast(t.saveData);
+                } catch (e) { showToast(getErrorMessage(e, lang), 'error'); }
+            };
+
             const handleToggleUnavailable = async (product) => { const updated = { ...product, unavailable: !product.unavailable }; const newProductsList = products.map(p => p.id === product.id ? updated : p); try { if(!isOfflineMode) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id), { unavailable: updated.unavailable }, { merge: true }); } setProducts(newProductsList); const syncResult = await saveToGitHub(newProductsList); showToast(updated.unavailable ? t.markUnavailable : t.markAvailable); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } };
             const handleDeleteProduct = (product) => { setConfirmMessage(t.delete + '?'); setConfirmAction(() => async () => { try { let newProductsList = products.filter(p => p.id !== product.id); if(!isOfflineMode) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id)); } else { setProducts(newProductsList); } const syncResult = await saveToGitHub(newProductsList); if (syncResult?.ok) showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } setShowConfirmModal(false); }); setShowConfirmModal(true); };
             const handleImageUpload = (e) => { const file = e.target.files[0]; if(file) { if (!file.type.startsWith('image/')) { showToast(t.imageTypeWarning, 'error'); return; } if(file.size > 800 * 1024) { showToast(t.imageSizeWarning, 'error'); return; } const reader = new FileReader(); reader.onloadend = () => setFormData({...formData, imageUrl: reader.result}); reader.readAsDataURL(file); } };
@@ -2009,15 +2027,17 @@
                     if (!user || !db) return;
                     const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'products');
                     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config');
+                    let savedOrder = [];
+                    const applyOrder = (prods) => { if (savedOrder.length) { const map = new Map(prods.map(p => [p.id, p])); const ordered = savedOrder.map(id => map.get(id)).filter(Boolean); const rest = prods.filter(p => !savedOrder.includes(p.id)); return [...ordered, ...rest]; } return prods; };
                     const unsubProducts = onSnapshot(productsRef, (snapshot) => {
                         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setProducts(prods); setLoading(false);
+                        setProducts(applyOrder(prods)); setLoading(false);
                     }, (error) => { 
                         console.error("Snapshot Error", error);
                         setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS); 
                         forceOffline();
                     });
-                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(docSnap.data().slides); });
+                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && Array.isArray(docSnap.data().productsOrder)) savedOrder = docSnap.data().productsOrder; if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(docSnap.data().slides); });
                     return () => { unsubProducts(); unsubSettings(); };
                 } else {
                     setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS);
@@ -2185,7 +2205,7 @@
                             </section>
                             <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                 <div className="flex justify-between mb-6"><h2 className="text-lg font-bold text-slate-900 dark:text-white">{t.manageProducts}</h2><button onClick={handleAddNewClick} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">{t.addNew}</button></div>
-                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} lang={lang}/>)}</div>}
+                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} onMove={handleMoveProduct} isFirst={products.indexOf(p) === 0} isLast={products.indexOf(p) === products.length - 1} lang={lang}/>)}</div>}
                             </section>
                         </div>
                         {isEditing && (
