@@ -1474,18 +1474,18 @@
             );
         };
 
-        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, onDropItem, lang }) => {
+        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, onDropItem, onTouchStartItem, touchOver, dragging, lang }) => {
             const [isDragOver, setIsDragOver] = useState(false);
             return (
-            <div draggable
+            <div draggable data-product-id={product.id}
                 onDragStart={(e) => { e.dataTransfer.setData('text/plain', product.id); e.dataTransfer.effectAllowed = 'move'; }}
                 onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                 onDragLeave={() => setIsDragOver(false)}
                 onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const draggedId = e.dataTransfer.getData('text/plain'); if (draggedId && draggedId !== product.id) onDropItem(draggedId, product.id); }}
                 onDragEnd={() => setIsDragOver(false)}
-                className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex flex-col md:flex-row items-center gap-4 transition ${isDragOver ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-900 scale-[1.01]' : 'border-slate-200 dark:border-slate-700'}`}>
+                className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex flex-col md:flex-row items-center gap-4 transition ${(isDragOver || touchOver) ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-900 scale-[1.01]' : 'border-slate-200 dark:border-slate-700'} ${dragging ? 'opacity-50' : ''}`}>
 
-                <div className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 select-none flex-shrink-0 text-xl leading-none px-1" title={translations[lang].dragToReorder || ''}>&#x2807;&#x2807;</div>
+                <div onTouchStart={(e) => onTouchStartItem(product.id)} className="cursor-grab active:cursor-grabbing touch-none text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 select-none flex-shrink-0 text-xl leading-none px-1" title={translations[lang].dragToReorder || ''}>&#x2807;&#x2807;</div>
                 <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 flex-shrink-0 overflow-hidden flex items-center justify-center p-2">
                     {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-contain" /> : <ImageIcon className="w-full h-full text-slate-300 dark:text-slate-500" />}
                 </div>
@@ -1524,6 +1524,8 @@
             const [slides, setSlides] = useState(DEFAULT_SLIDES);
             const [slideForm, setSlideForm] = useState({ title: '', title_en: '', subtitle: '', subtitle_en: '', imageUrl: '', productId: '' });
             const [editingSlideId, setEditingSlideId] = useState(null);
+            const [touchDragId, setTouchDragId] = useState(null);
+            const [touchOverId, setTouchOverId] = useState(null);
             
             const [showConfirmModal, setShowConfirmModal] = useState(false);
             const [confirmMessage, setConfirmMessage] = useState('');
@@ -1962,6 +1964,33 @@
                 } catch (e) { showToast(getErrorMessage(e, lang), 'error'); }
             };
 
+            const handleTouchStartItem = (id) => { setTouchDragId(id); setTouchOverId(null); };
+
+            useEffect(() => {
+                if (!touchDragId) return;
+                const onTouchMove = (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const card = el && el.closest('[data-product-id]');
+                    const overId = card ? card.getAttribute('data-product-id') : null;
+                    setTouchOverId(overId && overId !== touchDragId ? overId : null);
+                };
+                const onTouchEnd = () => {
+                    if (touchOverId) handleDropProduct(touchDragId, touchOverId);
+                    setTouchDragId(null);
+                    setTouchOverId(null);
+                };
+                document.addEventListener('touchmove', onTouchMove, { passive: false });
+                document.addEventListener('touchend', onTouchEnd);
+                document.addEventListener('touchcancel', onTouchEnd);
+                return () => {
+                    document.removeEventListener('touchmove', onTouchMove);
+                    document.removeEventListener('touchend', onTouchEnd);
+                    document.removeEventListener('touchcancel', onTouchEnd);
+                };
+            }, [touchDragId, touchOverId, products]);
+
             const handleToggleUnavailable = async (product) => { const updated = { ...product, unavailable: !product.unavailable }; const newProductsList = products.map(p => p.id === product.id ? updated : p); try { if(!isOfflineMode) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id), { unavailable: updated.unavailable }, { merge: true }); } setProducts(newProductsList); const syncResult = await saveToGitHub(newProductsList); showToast(updated.unavailable ? t.markUnavailable : t.markAvailable); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } };
             const handleDeleteProduct = (product) => { setConfirmMessage(t.delete + '?'); setConfirmAction(() => async () => { try { let newProductsList = products.filter(p => p.id !== product.id); if(!isOfflineMode) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id)); } else { setProducts(newProductsList); } const syncResult = await saveToGitHub(newProductsList); if (syncResult?.ok) showToast(t.delete); } catch(e){ showToast(getErrorMessage(e, lang), 'error'); } setShowConfirmModal(false); }); setShowConfirmModal(true); };
             const handleImageUpload = (e) => { const file = e.target.files[0]; if(file) { if (!file.type.startsWith('image/')) { showToast(t.imageTypeWarning, 'error'); return; } if(file.size > 800 * 1024) { showToast(t.imageSizeWarning, 'error'); return; } const reader = new FileReader(); reader.onloadend = () => setFormData({...formData, imageUrl: reader.result}); reader.readAsDataURL(file); } };
@@ -2215,7 +2244,7 @@
                             </section>
                             <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                 <div className="flex justify-between mb-6"><h2 className="text-lg font-bold text-slate-900 dark:text-white">{t.manageProducts}</h2><button onClick={handleAddNewClick} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">{t.addNew}</button></div>
-                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} onDropItem={handleDropProduct} lang={lang}/>)}</div>}
+                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} onDropItem={handleDropProduct} onTouchStartItem={handleTouchStartItem} touchOver={touchOverId === p.id} dragging={touchDragId === p.id} lang={lang}/>)}</div>}
                             </section>
                         </div>
                         {isEditing && (
