@@ -208,6 +208,7 @@
                 updateSlide: "حفظ التعديلات",
                 cancelEdit: "إلغاء",
                 moveUp: "تحريك لأعلى",
+                dragToReorder: "اسحب لإعادة الترتيب",
                 moveDown: "تحريك لأسفل",
                 unexpectedError: "حدث خطأ غير متوقع",
                 githubSettings: "ربط وتحديث GitHub تلقائياً",
@@ -326,6 +327,7 @@
                 updateSlide: "Save Changes",
                 cancelEdit: "Cancel",
                 moveUp: "Move up",
+                dragToReorder: "Drag to reorder",
                 moveDown: "Move down",
                 unexpectedError: "Error",
                 githubSettings: "GitHub Sync",
@@ -993,6 +995,35 @@
         ]
     },
     {
+        "id": "s9",
+        "type": "single",
+        "name": "Adobe Acrobat Pro",
+        "name_en": "Adobe Acrobat Pro",
+        "category": "Productivity",
+        "duration": "سنة كاملة",
+        "duration_en": "1 Year",
+        "description": "الحل المتكامل لملفات PDF. اشتراك أصلي مفعّل رسميًا مع ضمان كامل طوال المدة ودعم فني مستمر على مدار الساعة.",
+        "description_en": "The complete PDF solution. Original officially-activated subscription with full warranty and 24/7 support.",
+        "price": "ضمن الباقة",
+        "originalPrice": "",
+        "usdPrice": "0",
+        "imageUrl": "https://5.imimg.com/data5/SELLER/Default/2024/1/381936218/PY/CV/ST/133162696/acrobat-pro-dc-logo-romania-500x500.png",
+        "features": [
+            "جميع تطبيقات Creative Cloud كاملة",
+            "تفعيل رسمي 100% على حسابك",
+            "تخزين سحابي من Adobe",
+            "خطوط Adobe Fonts ومكتبات الأصول",
+            "يعمل على Windows و Mac"
+        ],
+        "features_en": [
+            "All Creative Cloud apps included",
+            "100% official activation on your account",
+            "Adobe cloud storage included",
+            "Adobe Fonts & asset libraries",
+            "Works on Windows & Mac"
+        ]
+    },
+    {
         "id": "avira-prime-3m",
         "name": "Avira Prime - اشتراك 3 شهور",
         "name_en": "Avira Prime - 3 Months",
@@ -1030,35 +1061,6 @@
             "iOS",
             "Android",
             "Browsers"
-        ]
-    },
-    {
-        "id": "s9",
-        "type": "single",
-        "name": "Adobe Acrobat Pro",
-        "name_en": "Adobe Acrobat Pro",
-        "category": "Productivity",
-        "duration": "سنة كاملة",
-        "duration_en": "1 Year",
-        "description": "الحل المتكامل لملفات PDF. اشتراك أصلي مفعّل رسميًا مع ضمان كامل طوال المدة ودعم فني مستمر على مدار الساعة.",
-        "description_en": "The complete PDF solution. Original officially-activated subscription with full warranty and 24/7 support.",
-        "price": "ضمن الباقة",
-        "originalPrice": "",
-        "usdPrice": "0",
-        "imageUrl": "https://5.imimg.com/data5/SELLER/Default/2024/1/381936218/PY/CV/ST/133162696/acrobat-pro-dc-logo-romania-500x500.png",
-        "features": [
-            "جميع تطبيقات Creative Cloud كاملة",
-            "تفعيل رسمي 100% على حسابك",
-            "تخزين سحابي من Adobe",
-            "خطوط Adobe Fonts ومكتبات الأصول",
-            "يعمل على Windows و Mac"
-        ],
-        "features_en": [
-            "All Creative Cloud apps included",
-            "100% official activation on your account",
-            "Adobe cloud storage included",
-            "Adobe Fonts & asset libraries",
-            "Works on Windows & Mac"
         ]
     }
 ];
@@ -1472,8 +1474,18 @@
             );
         };
 
-        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, onMove, isFirst, isLast, lang }) => (
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center gap-4">
+        const AdminProductItem = ({ product, onDelete, onEdit, onToggleUnavailable, onDropItem, lang }) => {
+            const [isDragOver, setIsDragOver] = useState(false);
+            return (
+            <div draggable
+                onDragStart={(e) => { e.dataTransfer.setData('text/plain', product.id); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const draggedId = e.dataTransfer.getData('text/plain'); if (draggedId && draggedId !== product.id) onDropItem(draggedId, product.id); }}
+                onDragEnd={() => setIsDragOver(false)}
+                className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex flex-col md:flex-row items-center gap-4 transition ${isDragOver ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-900 scale-[1.01]' : 'border-slate-200 dark:border-slate-700'}`}>
+
+                <div className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 select-none flex-shrink-0 text-xl leading-none px-1" title={translations[lang].dragToReorder || ''}>&#x2807;&#x2807;</div>
                 <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 flex-shrink-0 overflow-hidden flex items-center justify-center p-2">
                     {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-contain" /> : <ImageIcon className="w-full h-full text-slate-300 dark:text-slate-500" />}
                 </div>
@@ -1488,16 +1500,13 @@
                     <div className="text-sm font-bold text-green-600 dark:text-green-400 mt-1">{product.price}</div>
                 </div>
                 <div className="flex gap-2">
-                    <div className="flex flex-col gap-1">
-                        <button aria-label={translations[lang].moveUp} title={translations[lang].moveUp} disabled={isFirst} onClick={() => onMove(product.id, -1)} className="p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition leading-none disabled:opacity-30 disabled:cursor-not-allowed">&#9650;</button>
-                        <button aria-label={translations[lang].moveDown} title={translations[lang].moveDown} disabled={isLast} onClick={() => onMove(product.id, 1)} className="p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition leading-none disabled:opacity-30 disabled:cursor-not-allowed">&#9660;</button>
-                    </div>
                     <button aria-label={product.unavailable ? translations[lang].markAvailable : translations[lang].markUnavailable} title={product.unavailable ? translations[lang].markAvailable : translations[lang].markUnavailable} onClick={() => onToggleUnavailable(product)} className={`px-2 py-1 text-xs font-bold rounded-lg transition whitespace-nowrap ${product.unavailable ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100' : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100'}`}>{product.unavailable ? '✅ ' + translations[lang].markAvailable : '🚫 ' + translations[lang].markUnavailable}</button>
                     <button aria-label={translations[lang].edit} onClick={() => onEdit(product)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition"><Edit className="w-5 h-5" /></button>
                     <button aria-label={translations[lang].delete} onClick={() => onDelete(product)} className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"><Trash2 className="w-5 h-5" /></button>
                 </div>
             </div>
-        );
+            );
+        };
 
         function App() {
             const [user, setUser] = useState(null);
@@ -1938,12 +1947,13 @@
                 document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
             };
 
-            const handleMoveProduct = async (id, dir) => {
-                const idx = products.findIndex(p => p.id === id);
-                const target = idx + dir;
-                if (idx === -1 || target < 0 || target >= products.length) return;
+            const handleDropProduct = async (draggedId, targetId) => {
+                const fromIdx = products.findIndex(p => p.id === draggedId);
+                const toIdx = products.findIndex(p => p.id === targetId);
+                if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
                 const updated = [...products];
-                [updated[idx], updated[target]] = [updated[target], updated[idx]];
+                const [moved] = updated.splice(fromIdx, 1);
+                updated.splice(toIdx, 0, moved);
                 setProducts(updated);
                 try {
                     if (!isOfflineMode && db) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config'), { productsOrder: updated.map(p => p.id) }, { merge: true });
@@ -2205,7 +2215,7 @@
                             </section>
                             <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                 <div className="flex justify-between mb-6"><h2 className="text-lg font-bold text-slate-900 dark:text-white">{t.manageProducts}</h2><button onClick={handleAddNewClick} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">{t.addNew}</button></div>
-                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} onMove={handleMoveProduct} isFirst={products.indexOf(p) === 0} isLast={products.indexOf(p) === products.length - 1} lang={lang}/>)}</div>}
+                                {products.length === 0 ? <button onClick={handleSeedData} className="mx-auto bg-blue-100 text-blue-700 px-6 py-3 rounded-lg hover:bg-blue-200 transition">{t.restoreData}</button> : <div className="space-y-3">{products.map(p => <AdminProductItem key={p.id} product={p} onEdit={handleEditClick} onDelete={handleDeleteProduct} onToggleUnavailable={handleToggleUnavailable} onDropItem={handleDropProduct} lang={lang}/>)}</div>}
                             </section>
                         </div>
                         {isEditing && (
