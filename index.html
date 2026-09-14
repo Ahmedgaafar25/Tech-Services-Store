@@ -1825,7 +1825,7 @@
                     const dailyStatsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', `daily_${today}`);
                     await setDoc(generalStatsRef, { totalVisits: increment(1) }, { merge: true });
                     const countryKey = `countries.${country || 'Unknown'}`;
-                    await setDoc(dailyStatsRef, { totalVisits: increment(1), [countryKey]: increment(1), date: today }, { merge: true });
+                    await setDoc(dailyStatsRef, { totalVisits: increment(1), countries: { [countryKey]: increment(1) }, date: today }, { merge: true });
                 } catch (error) {}
             };
 
