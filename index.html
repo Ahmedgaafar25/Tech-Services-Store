@@ -209,6 +209,9 @@
                 cancelEdit: "إلغاء",
                 moveUp: "تحريك لأعلى",
                 dragToReorder: "اسحب لإعادة الترتيب",
+                visitorsLog: "سجل الزوار",
+                backToDashboard: "عودة للوحة التحكم",
+                noVisitors: "لا توجد زيارات مسجلة بعد",
                 moveDown: "تحريك لأسفل",
                 unexpectedError: "حدث خطأ غير متوقع",
                 githubSettings: "ربط وتحديث GitHub تلقائياً",
@@ -328,6 +331,9 @@
                 cancelEdit: "Cancel",
                 moveUp: "Move up",
                 dragToReorder: "Drag to reorder",
+                visitorsLog: "Visitors Log",
+                backToDashboard: "Back to Dashboard",
+                noVisitors: "No visits recorded yet",
                 moveDown: "Move down",
                 unexpectedError: "Error",
                 githubSettings: "GitHub Sync",
@@ -1628,6 +1634,59 @@
             );
         };
 
+        const VisitorsLogPage = ({ lang, onBack, isOfflineMode }) => {
+            const [visits, setVisits] = useState([]);
+            const [loadingVisits, setLoadingVisits] = useState(true);
+            const t = translations[lang];
+            useEffect(() => {
+                if (isOfflineMode || !db) {
+                    setVisits(JSON.parse(localStorage.getItem('local_visits') || '[]').reverse());
+                    setLoadingVisits(false);
+                    return;
+                }
+                const visitsRef = collection(db, 'artifacts', appId, 'public', 'data', 'visits');
+                const unsub = onSnapshot(visitsRef, (snap) => {
+                    const list = snap.docs.map(d => d.data());
+                    list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+                    setVisits(list);
+                    setLoadingVisits(false);
+                }, () => {
+                    setVisits(JSON.parse(localStorage.getItem('local_visits') || '[]').reverse());
+                    setLoadingVisits(false);
+                });
+                return () => unsub();
+            }, []);
+            return (
+                <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 pb-20">
+                    <header className="bg-slate-900 dark:bg-slate-950 text-white shadow-lg sticky top-0 z-50 p-4 flex justify-between items-center">
+                        <div className="flex items-center gap-2"><Users className="text-blue-400" /><h1 className="text-xl font-bold">{t.visitorsLog}</h1></div>
+                        <button onClick={onBack} className="bg-slate-800 px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition text-slate-300">{t.backToDashboard}</button>
+                    </header>
+                    <div className="container mx-auto px-4 py-8">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                            <div className="p-4 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300">{t.visitorsLog} ({visits.length})</div>
+                            {loadingVisits ? (
+                                <div className="p-8 text-center"><Loader className="w-8 h-8 text-blue-600 animate-spin mx-auto" /></div>
+                            ) : visits.length === 0 ? (
+                                <p className="p-8 text-center text-slate-400">{t.noVisitors}</p>
+                            ) : (
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {visits.slice(0, 300).map((v, i) => (
+                                        <div key={i} className="p-4 flex flex-col md:flex-row md:items-center gap-1 md:gap-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                            <div className="font-mono font-bold text-blue-600 dark:text-blue-400" dir="ltr">{v.ip || '—'}</div>
+                                            <div className="text-sm font-bold">{countryMap[v.country] || v.country || 'Unknown'}</div>
+                                            <div className="text-xs text-slate-500 dark:text-slate-400" dir="ltr">{v.ts ? new Date(v.ts).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US') : ''}</div>
+                                            <div className="text-[10px] text-slate-400 truncate md:mr-auto max-w-md" dir="ltr">{v.ua || ''}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         function App() {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
@@ -1636,6 +1695,7 @@
             const countryCode = useCountry();
             
             const [showLoginModal, setShowLoginModal] = useState(false);
+            const [showVisitorsPage, setShowVisitorsPage] = useState(false);
             const [loginCode, setLoginCode] = useState('');
             const [loginError, setLoginError] = useState('');
             const [notification, setNotification] = useState(null);
@@ -1806,6 +1866,11 @@
             };
 
             const recordVisit = async (country) => {
+                let visitorIp = '';
+                try {
+                    const geoRes = await fetch('https://get.geojs.io/v1/ip/geo.json');
+                    if (geoRes.ok) { const g = await geoRes.json(); visitorIp = g.ip || ''; }
+                } catch (e) {}
                 const currentTotal = parseInt(localStorage.getItem('local_total_visits') || '0');
                 localStorage.setItem('local_total_visits', currentTotal + 1);
                 
@@ -1819,6 +1884,10 @@
                 countries[country || 'Unknown'] = (countries[country || 'Unknown'] || 0) + 1;
                 localStorage.setItem(countriesKey, JSON.stringify(countries));
 
+                const localVisits = JSON.parse(localStorage.getItem('local_visits') || '[]');
+                localVisits.push({ ip: visitorIp, country: country || 'Unknown', ua: navigator.userAgent, ts: Date.now() });
+                localStorage.setItem('local_visits', JSON.stringify(localVisits.slice(-500)));
+
                 if (isOfflineMode || !db) return;
                 try {
                     const generalStatsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'general');
@@ -1826,6 +1895,7 @@
                     await setDoc(generalStatsRef, { totalVisits: increment(1) }, { merge: true });
                     const countryKey = `countries.${country || 'Unknown'}`;
                     await setDoc(dailyStatsRef, { totalVisits: increment(1), countries: { [countryKey]: increment(1) }, date: today }, { merge: true });
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'visits'), { ip: visitorIp, country: country || 'Unknown', ua: navigator.userAgent, ts: Date.now() });
                 } catch (error) {}
             };
 
@@ -2218,6 +2288,7 @@
             }
 
             if (isAdmin) {
+                if (showVisitorsPage) return <VisitorsLogPage lang={lang} onBack={() => setShowVisitorsPage(false)} isOfflineMode={isOfflineMode} />;
                 return (
                     <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 pb-20">
                         <Toast />
@@ -2226,6 +2297,7 @@
                             <div className="flex gap-2">
                                 <button onClick={toggleTheme} className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700 transition text-slate-300">{isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
                                 <button onClick={toggleLanguage} className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700 transition flex items-center gap-1 font-bold text-sm text-slate-300"><Globe size={18} /><span>{lang === 'ar' ? 'EN' : 'عربي'}</span></button>
+                                <button onClick={() => setShowVisitorsPage(true)} className="bg-slate-800 px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition text-slate-300 flex items-center gap-1"><Users size={16} /><span>{t.visitorsLog}</span></button>
                                 <button onClick={() => setIsAdmin(false)} className="bg-slate-800 px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition text-slate-300">{t.logout}</button>
                             </div>
                         </header>
