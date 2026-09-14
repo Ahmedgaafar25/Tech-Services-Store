@@ -212,6 +212,7 @@
                 visitorsLog: "سجل الزوار",
                 backToDashboard: "عودة للوحة التحكم",
                 noVisitors: "لا توجد زيارات مسجلة بعد",
+                productViews: "مشاهدات المنتجات",
                 moveDown: "تحريك لأسفل",
                 unexpectedError: "حدث خطأ غير متوقع",
                 githubSettings: "ربط وتحديث GitHub تلقائياً",
@@ -334,6 +335,7 @@
                 visitorsLog: "Visitors Log",
                 backToDashboard: "Back to Dashboard",
                 noVisitors: "No visits recorded yet",
+                productViews: "Product Views",
                 moveDown: "Move down",
                 unexpectedError: "Error",
                 githubSettings: "GitHub Sync",
@@ -1734,6 +1736,7 @@
             });
 
             const [stats, setStats] = useState({ totalVisits: 0, dailyVisits: 0, topCountries: {} });
+            const [productViews, setProductViews] = useState({});
             const [isEditing, setIsEditing] = useState(false);
             const [editingProduct, setEditingProduct] = useState(null);
             const [formData, setFormData] = useState({ name: '', category: '', duration: '', price: '', originalPrice: '', usdPrice: '', description: '', imageUrl: '', type: 'bundle', features: '', features_en: '' });
@@ -1806,7 +1809,15 @@
                 return () => window.removeEventListener('hashchange', handleHashChange); 
             }, [products]);
             
-            const openProductLink = (product) => { window.location.hash = `#/product/${product.id}`; };
+            const openProductLink = (product) => {
+                window.location.hash = `#/product/${product.id}`;
+                try {
+                    const lv = JSON.parse(localStorage.getItem('local_product_views') || '{}');
+                    lv[product.id] = (lv[product.id] || 0) + 1;
+                    localStorage.setItem('local_product_views', JSON.stringify(lv));
+                } catch (e) {}
+                trackProductView(product.id);
+            };
             
             const navigateHome = () => { 
                 window.location.hash = '';
@@ -1912,10 +1923,15 @@
                         const unsubGeneral = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'general'), (doc) => {
                             if (doc.exists()) setStats(prev => ({ ...prev, totalVisits: doc.data().totalVisits || 0 }));
                         });
+                        const unsubProductViews = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'stats', 'products'), (snap) => {
+                            const pv = {};
+                            snap.docs.forEach(d => { pv[d.id] = d.data().views || 0; });
+                            setProductViews(pv);
+                        }, (e) => console.warn(e));
                         const unsubDaily = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'stats', `daily_${today}`), (doc) => {
                             if (doc.exists()) { const data = doc.data(); setStats(prev => ({ ...prev, dailyVisits: data.totalVisits || 0, topCountries: data.countries || {} })); }
                         });
-                        return () => { unsubGeneral(); unsubDaily(); };
+                        return () => { unsubGeneral(); unsubDaily(); unsubProductViews(); };
                     } else {
                         const total = localStorage.getItem('local_total_visits') || 0;
                         const daily = localStorage.getItem(`local_daily_${today}`) || 0;
@@ -2393,6 +2409,27 @@
                                         </button>
                                     </div>
                                 </div>
+                            </section>
+                            <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-white"><BarChart size={20}/> {t.productViews}</h2>
+                                {(() => {
+                                    let pv = productViews;
+                                    if (isOfflineMode || Object.keys(pv).length === 0) { try { pv = JSON.parse(localStorage.getItem('local_product_views') || '{}'); } catch(e) { pv = {}; } }
+                                    const rows = products.map(p => ({ p, views: pv[p.id] || 0 })).sort((a, b) => b.views - a.views);
+                                    const maxViews = Math.max(1, ...rows.map(r => r.views));
+                                    if (!rows.length) return <p className="text-slate-400 text-center py-4">{t.noVisitors}</p>;
+                                    return <div className="space-y-2">
+                                        {rows.map(({ p, views }) => (
+                                            <div key={p.id} className="flex items-center gap-3">
+                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 w-40 md:w-64 truncate">{p.name}</span>
+                                                <div className="flex-grow h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-gradient-to-l from-blue-500 to-blue-600 rounded-full transition-all" style={{ width: (views / maxViews * 100) + '%' }}></div>
+                                                </div>
+                                                <span className="text-sm font-black text-blue-600 dark:text-blue-400 w-10 text-left" dir="ltr">{views}</span>
+                                            </div>
+                                        ))}
+                                    </div>;
+                                })()}
                             </section>
                             <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                 <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-white"><ImageIcon size={20}/> {t.manageSlides}</h2>
