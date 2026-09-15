@@ -1605,7 +1605,7 @@
 
         const HeroCarousel = ({ slides, lang, onSlideClick }) => {
             const [current, setCurrent] = useState(0);
-            const touchStartX = useRef(null);
+            const touchStartX = React.useRef(null);
             const count = slides.length;
             useEffect(() => {
                 if (count <= 1) return;
