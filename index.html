@@ -395,10 +395,10 @@
 
         /* SLIDES_START */
         const DEFAULT_SLIDES = [
-            { id: 'slide1', title: 'عروض حصرية 🔥', title_en: 'Exclusive Offers 🔥', subtitle: 'خصومات تصل إلى 70% على جميع الاشتراكات', subtitle_en: 'Up to 70% off all subscriptions', imageUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&q=80', productId: '' },
-            { id: 'slide2', title: 'اشتراكات أصلية 100%', title_en: '100% Original Subscriptions', subtitle: 'Microsoft, Adobe, ChatGPT وأكثر بضمان كامل', subtitle_en: 'Microsoft, Adobe, ChatGPT & more with full warranty', imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&q=80', productId: '' },
-            { id: 'slide3', title: 'تفعيل فوري ⚡', title_en: 'Instant Activation ⚡', subtitle: 'استلم اشتراكك خلال دقائق من الطلب', subtitle_en: 'Receive your subscription within minutes', imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80', productId: '' },
-            { id: 'slide4', title: 'دعم فني 24/7', title_en: '24/7 Support', subtitle: 'فريقنا معك في أي وقت', subtitle_en: 'Our team is with you anytime', imageUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&q=80', productId: '' }
+            { id: 'slide1', title: 'عروض حصرية 🔥', title_en: 'Exclusive Offers 🔥', subtitle: 'خصومات تصل إلى 70% على جميع الاشتراكات', subtitle_en: 'Up to 70% off all subscriptions', imageUrl: 'https://sspark.genspark.ai/i/KdZBpd540l1uzQfy?width=2560', productId: '' },
+            { id: 'slide2', title: 'اشتراكات أصلية 100%', title_en: '100% Original Subscriptions', subtitle: 'Microsoft, Adobe, ChatGPT وأكثر بضمان كامل', subtitle_en: 'Microsoft, Adobe, ChatGPT & more with full warranty', imageUrl: 'https://sspark.genspark.ai/i/PmFNTndZWyjjiTgZ?width=2560', productId: '' },
+            { id: 'slide3', title: 'تفعيل فوري ⚡', title_en: 'Instant Activation ⚡', subtitle: 'استلم اشتراكك خلال دقائق من الطلب', subtitle_en: 'Receive your subscription within minutes', imageUrl: 'https://sspark.genspark.ai/i/7XXPMqjr54cnrSJ2?width=2560', productId: '' },
+            { id: 'slide4', title: 'دعم فني 24/7', title_en: '24/7 Support', subtitle: 'فريقنا معك في أي وقت', subtitle_en: 'Our team is with you anytime', imageUrl: 'https://sspark.genspark.ai/i/j3MKe0vDatyjPGhJ?width=2560', productId: '' }
         ];
         /* SLIDES_END */
 
@@ -1605,6 +1605,7 @@
 
         const HeroCarousel = ({ slides, lang, onSlideClick }) => {
             const [current, setCurrent] = useState(0);
+            const touchStartX = useRef(null);
             const count = slides.length;
             useEffect(() => {
                 if (count <= 1) return;
@@ -1614,24 +1615,33 @@
             if (!count) return null;
             const t = translations[lang];
             const goTo = (i) => setCurrent((i + count) % count);
+            const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+            const onTouchEnd = (e) => {
+                if (touchStartX.current === null) return;
+                const delta = e.changedTouches[0].clientX - touchStartX.current;
+                if (delta > 50) goTo(current - 1);
+                else if (delta < -50) goTo(current + 1);
+                touchStartX.current = null;
+            };
             return (
-                <div className="relative w-full h-64 md:h-96 rounded-3xl overflow-hidden shadow-xl mb-10 group animate-fade-in" dir="ltr">
-                    {slides.map((slide, i) => (
-                        <div key={slide.id || i} className={`absolute inset-0 transition-opacity duration-700 ${i === current ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
-                            {slide.imageUrl && <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />}
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
-                            <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="absolute bottom-0 left-0 right-0 p-6 md:p-10 text-white text-center">
-                                <h2 className="text-2xl md:text-4xl font-black mb-2 drop-shadow-lg">{(lang === 'en' && slide.title_en) ? slide.title_en : slide.title}</h2>
-                                {slide.subtitle && <p className="text-sm md:text-lg text-slate-200 mb-4 drop-shadow">{(lang === 'en' && slide.subtitle_en) ? slide.subtitle_en : slide.subtitle}</p>}
-                                <button onClick={() => onSlideClick(slide)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition text-sm md:text-base">{t.viewOffer}</button>
+                <div className="relative w-[100vw] left-1/2 -translate-x-1/2 h-52 md:h-80 overflow-hidden shadow-lg group animate-fade-in" dir="ltr"
+                    onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+                    <div className="flex h-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${current * 100}%)` }}>
+                        {slides.map((slide, i) => (
+                            <div key={slide.id || i} className="w-full h-full flex-shrink-0 relative bg-white">
+                                {slide.imageUrl && <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" draggable="false" />}
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent"></div>
+                                <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="absolute bottom-0 left-0 right-0 p-4 md:p-8 text-white text-center">
+                                    <h2 className="text-xl md:text-3xl font-black mb-1 md:mb-2 drop-shadow-lg">{(lang === 'en' && slide.title_en) ? slide.title_en : slide.title}</h2>
+                                    {slide.subtitle && <p className="text-xs md:text-base text-slate-200 mb-2 md:mb-4 drop-shadow line-clamp-1">{(lang === 'en' && slide.subtitle_en) ? slide.subtitle_en : slide.subtitle}</p>}
+                                    <button onClick={() => onSlideClick(slide)} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 md:px-6 md:py-2.5 rounded-xl font-bold shadow-lg transition text-xs md:text-base">{t.viewOffer}</button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                     {count > 1 && <>
-                        <button onClick={() => goTo(current - 1)} aria-label="prev" className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-black/60 text-white w-10 h-10 rounded-full flex items-center justify-center text-2xl transition opacity-0 group-hover:opacity-100">&#8249;</button>
-                        <button onClick={() => goTo(current + 1)} aria-label="next" className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/40 hover:bg-black/60 text-white w-10 h-10 rounded-full flex items-center justify-center text-2xl transition opacity-0 group-hover:opacity-100">&#8250;</button>
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-                            {slides.map((_, i) => <button key={i} onClick={() => goTo(i)} aria-label={'slide ' + (i+1)} className={`w-2.5 h-2.5 rounded-full transition ${i === current ? 'bg-white scale-110' : 'bg-white/40 hover:bg-white/70'}`} />)}
+                        <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                            {slides.map((_, i) => <button key={i} onClick={() => goTo(i)} aria-label={'slide ' + (i+1)} className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full transition ${i === current ? 'bg-white scale-110' : 'bg-white/40 hover:bg-white/70'}`} />)}
                         </div>
                     </>}
                 </div>
@@ -2483,27 +2493,6 @@
                                 </div>
                             </section>
                             <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-white"><BarChart size={20}/> {t.productViews}</h2>
-                                {(() => {
-                                    let pv = productViews;
-                                    if (isOfflineMode || Object.keys(pv).length === 0) { try { pv = JSON.parse(localStorage.getItem('local_product_views') || '{}'); } catch(e) { pv = {}; } }
-                                    const rows = products.map(p => ({ p, views: pv[p.id] || 0 })).sort((a, b) => b.views - a.views);
-                                    const maxViews = Math.max(1, ...rows.map(r => r.views));
-                                    if (!rows.length) return <p className="text-slate-400 text-center py-4">{t.noVisitors}</p>;
-                                    return <div className="space-y-2">
-                                        {rows.map(({ p, views }) => (
-                                            <div key={p.id} className="flex items-center gap-3">
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 w-40 md:w-64 truncate">{p.name}</span>
-                                                <div className="flex-grow h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-gradient-to-l from-blue-500 to-blue-600 rounded-full transition-all" style={{ width: (views / maxViews * 100) + '%' }}></div>
-                                                </div>
-                                                <span className="text-sm font-black text-blue-600 dark:text-blue-400 w-10 text-left" dir="ltr">{views}</span>
-                                            </div>
-                                        ))}
-                                    </div>;
-                                })()}
-                            </section>
-                            <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                 <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-white"><ImageIcon size={20}/> {t.manageSlides}</h2>
                                 <div className="space-y-3 mb-6">
                                     {slides.map(slide => (
@@ -2683,7 +2672,7 @@
                         <ProductDetailsPage product={selectedProduct} onBack={handleCloseProduct} onOrder={openWhatsapp} countryCode={countryCode} onProductSelect={openProductLink} allProducts={products.length>0?products:DEFAULT_PRODUCTS} lang={lang} onShare={handleShare} />
                     ) : (
                         <>
-                            <div className="container mx-auto px-4 pt-8">
+                            <div className="pt-4">
                                 <HeroCarousel slides={slides} lang={lang} onSlideClick={handleSlideClick} />
                             </div>
                             <header className="py-12 text-center container mx-auto px-4 animate-fade-in relative">
