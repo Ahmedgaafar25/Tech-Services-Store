@@ -54,30 +54,48 @@
         };
     </script>
 
-    <!-- Early visit tracking (fires before React loads) -->
+    <!-- Early visit tracking (fires before React loads) - now authenticates anonymously first so it complies with Firestore security rules -->
     <script>
     (function () {
         try {
             if (sessionStorage.getItem('visited')) return;
-            sessionStorage.setItem('visited', 'true');
             var today = new Date().toISOString().split('T')[0];
-            fetch('https://get.geojs.io/v1/ip/geo.json').then(function (r) { return r.json(); }).then(function (g) {
-                var country = (g && g.country) || 'Unknown';
-                var ip = (g && g.ip) || '';
-                var key = 'AIzaSyCYMLw1JplZjmgFRk5wswT0KRxVB6gyhsE';
-                var base = 'https://firestore.googleapis.com/v1/projects/store-ba639/databases/(default)/documents';
-                var docBase = base + '/artifacts/digital-store-v1/public/data';
-                // atomic increments via commit + field transforms (the ONLY correct REST way)
-                fetch(base + ':commit?key=' + key, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            var key = 'AIzaSyCYMLw1JplZjmgFRk5wswT0KRxVB6gyhsE';
+            var authUrl = 'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + key;
+            var base = 'https://firestore.googleapis.com/v1/projects/store-ba639/databases/(default)/documents';
+            var docBase = base + '/artifacts/digital-store-v1/public/data';
+
+            function getGeo() {
+                return fetch('https://get.geojs.io/v1/ip/geo.json').then(function (r) { if (!r.ok) throw 0; return r.json(); })
+                    .then(function (g) { return { country: (g && g.country) || 'Unknown', ip: (g && g.ip) || '' }; })
+                    .catch(function () {
+                        return fetch('https://ipwho.is/').then(function (r) { return r.json(); })
+                            .then(function (g) { return { country: (g && g.country_code) || 'Unknown', ip: (g && g.ip) || '' }; })
+                            .catch(function () { return { country: 'Unknown', ip: '' }; });
+                    });
+            }
+
+            Promise.all([
+                getGeo(),
+                fetch(authUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true }) }).then(function (r) { return r.json(); }).catch(function () { return null; })
+            ]).then(function (results) {
+                var geo = results[0], authRes = results[1];
+                var country = geo.country, ip = geo.ip;
+                var idToken = authRes && authRes.idToken;
+                if (!idToken) return; // no auth = writes will be rejected by security rules, let React handle it later
+                var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken };
+                fetch(base + ':commit?key=' + key, { method: 'POST', headers: headers,
                     body: JSON.stringify({ writes: [
                         { transform: { document: docBase + '/stats/general', fieldTransforms: [{ fieldPath: 'totalVisits', increment: { integerValue: '1' } }] } },
                         { transform: { document: docBase + '/stats/daily_' + today, fieldTransforms: [
                             { fieldPath: 'totalVisits', increment: { integerValue: '1' } },
                             { fieldPath: 'countries.' + country, increment: { integerValue: '1' } }
                         ] } }
-                    ] }) }).catch(function(){});
+                    ] }) }).then(function (res) {
+                        if (res.ok) sessionStorage.setItem('visited', 'true');
+                    }).catch(function () {});
                 // visit log entry with IP
-                fetch(docBase + '/visits?key=' + key, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                fetch(docBase + '/visits?key=' + key, { method: 'POST', headers: headers,
                     body: JSON.stringify({ fields: {
                         ip: { stringValue: ip }, country: { stringValue: country },
                         ua: { stringValue: navigator.userAgent }, ts: { integerValue: String(Date.now()) }
@@ -2038,6 +2056,12 @@
                     const geoRes = await fetch('https://get.geojs.io/v1/ip/geo.json');
                     if (geoRes.ok) { const g = await geoRes.json(); visitorIp = g.ip || ''; }
                 } catch (e) {}
+                if (!visitorIp) {
+                    try {
+                        const whoRes = await fetch('https://ipwho.is/');
+                        if (whoRes.ok) { const w = await whoRes.json(); visitorIp = w.ip || ''; }
+                    } catch (e) {}
+                }
                 const currentTotal = parseInt(localStorage.getItem('local_total_visits') || '0');
                 localStorage.setItem('local_total_visits', currentTotal + 1);
                 
@@ -2067,9 +2091,14 @@
 
             useEffect(() => {
                 if (!sessionStorage.getItem(STORAGE_KEYS.VISITED)) {
-                    if (countryCode) { recordVisit(countryCode); sessionStorage.setItem(STORAGE_KEYS.VISITED, 'true'); }
+                    // Wait for anonymous auth (user) to be ready before writing, otherwise
+                    // the Firestore security rules (allow write: if request.auth != null) reject the write silently.
+                    if (countryCode && (isOfflineMode || user)) {
+                        recordVisit(countryCode);
+                        sessionStorage.setItem(STORAGE_KEYS.VISITED, 'true');
+                    }
                 }
-            }, [countryCode, isOfflineMode]);
+            }, [countryCode, isOfflineMode, user]);
 
             useEffect(() => {
                 if (isAdmin) {
