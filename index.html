@@ -124,7 +124,7 @@
         // Firebase Imports
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, collection, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, increment, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, onSnapshot, increment, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         const STORAGE_KEYS = {
             PRODUCTS: 'tech_store_products_v4',
@@ -1776,24 +1776,57 @@
         const VisitorsLogPage = ({ lang, onBack, isOfflineMode, stats, productViews, products }) => {
             const [visits, setVisits] = useState([]);
             const [loadingVisits, setLoadingVisits] = useState(true);
+            const [visitsSource, setVisitsSource] = useState('cloud');
             const t = translations[lang];
+
+            const fetchVisitsOnce = async () => {
+                // Primary path: a ONE-TIME getDocs request over plain HTTPS.
+                // (onSnapshot uses a persistent WebChannel/streaming connection which some
+                // networks, browsers or extensions silently block; getDocs is a normal
+                // HTTPS GET and is far more reliable, matching what our direct REST tests confirmed.)
+                try {
+                    const visitsRef = collection(db, 'artifacts', appId, 'public', 'data', 'visits');
+                    const snap = await getDocs(visitsRef);
+                    const list = snap.docs.map(d => d.data());
+                    list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+                    setVisits(list);
+                    setVisitsSource('cloud');
+                    setLoadingVisits(false);
+                    return true;
+                } catch (e) {
+                    console.warn('getDocs(visits) failed', e);
+                    return false;
+                }
+            };
+
             useEffect(() => {
                 if (isOfflineMode || !db) {
                     setVisits(JSON.parse(localStorage.getItem('local_visits') || '[]').reverse());
+                    setVisitsSource('local');
                     setLoadingVisits(false);
                     return;
                 }
+                let cancelled = false;
+                (async () => {
+                    const ok = await fetchVisitsOnce();
+                    if (cancelled) return;
+                    if (!ok) {
+                        // Only fall back to this device's own local log if the direct fetch also failed.
+                        setVisits(JSON.parse(localStorage.getItem('local_visits') || '[]').reverse());
+                        setVisitsSource('local');
+                        setLoadingVisits(false);
+                    }
+                })();
+                // Live updates on top of the initial fetch (best-effort; ignored if it fails, since we already have data).
                 const visitsRef = collection(db, 'artifacts', appId, 'public', 'data', 'visits');
                 const unsub = onSnapshot(visitsRef, (snap) => {
                     const list = snap.docs.map(d => d.data());
                     list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
                     setVisits(list);
+                    setVisitsSource('cloud');
                     setLoadingVisits(false);
-                }, () => {
-                    setVisits(JSON.parse(localStorage.getItem('local_visits') || '[]').reverse());
-                    setLoadingVisits(false);
-                });
-                return () => unsub();
+                }, () => { /* real-time stream blocked - the one-time fetch above already has the real data */ });
+                return () => { cancelled = true; unsub(); };
             }, []);
             let pv = productViews || {};
             if (isOfflineMode || Object.keys(pv).length === 0) { try { pv = JSON.parse(localStorage.getItem('local_product_views') || '{}'); } catch(e) { pv = {}; } }
@@ -2104,17 +2137,36 @@
                 if (isAdmin) {
                     const today = new Date().toISOString().split('T')[0];
                     if (!isOfflineMode && db) {
+                        // One-time direct fetch first (reliable even when the real-time stream is blocked),
+                        // then keep onSnapshot running on top for live updates.
+                        (async () => {
+                            try {
+                                const generalSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'general'));
+                                if (generalSnap.exists()) setStats(prev => ({ ...prev, totalVisits: generalSnap.data().totalVisits || 0 }));
+                            } catch (e) { console.warn('getDoc(general) failed', e); }
+                            try {
+                                const dailySnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', `daily_${today}`));
+                                if (dailySnap.exists()) { const data = dailySnap.data(); setStats(prev => ({ ...prev, dailyVisits: data.totalVisits || 0, topCountries: data.countries || {} })); }
+                            } catch (e) { console.warn('getDoc(daily) failed', e); }
+                            try {
+                                const pvSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'stats', 'products'));
+                                const pv = {};
+                                pvSnap.docs.forEach(d => { pv[d.id] = d.data().views || 0; });
+                                setProductViews(pv);
+                            } catch (e) { console.warn('getDocs(product views) failed', e); }
+                        })();
+
                         const unsubGeneral = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'general'), (doc) => {
                             if (doc.exists()) setStats(prev => ({ ...prev, totalVisits: doc.data().totalVisits || 0 }));
-                        });
+                        }, (e) => console.warn('onSnapshot(general) blocked', e));
                         const unsubProductViews = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'stats', 'products'), (snap) => {
                             const pv = {};
                             snap.docs.forEach(d => { pv[d.id] = d.data().views || 0; });
                             setProductViews(pv);
-                        }, (e) => console.warn(e));
+                        }, (e) => console.warn('onSnapshot(productViews) blocked', e));
                         const unsubDaily = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'stats', `daily_${today}`), (doc) => {
                             if (doc.exists()) { const data = doc.data(); setStats(prev => ({ ...prev, dailyVisits: data.totalVisits || 0, topCountries: data.countries || {} })); }
-                        });
+                        }, (e) => console.warn('onSnapshot(daily) blocked', e));
                         return () => { unsubGeneral(); unsubDaily(); unsubProductViews(); };
                     } else {
                         const total = localStorage.getItem('local_total_visits') || 0;
