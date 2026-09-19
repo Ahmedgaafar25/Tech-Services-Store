@@ -2568,15 +2568,39 @@
                     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config');
                     let savedOrder = [];
                     const applyOrder = (prods) => { if (savedOrder.length) { const map = new Map(prods.map(p => [p.id, p])); const ordered = savedOrder.map(id => map.get(id)).filter(Boolean); const rest = prods.filter(p => !savedOrder.includes(p.id)); return [...ordered, ...rest]; } return prods; };
+
+                    let resolvedInitial = false;
+                    // Reliable one-shot REST fetch FIRST: guarantees the app loads with real
+                    // server data even when the SDK's onSnapshot WebChannel is silently blocked
+                    // by the network (carrier proxy / privacy extension / restrictive browser).
+                    // Previously, a blocked onSnapshot here called forceOffline(), which then
+                    // wrongly kept the ENTIRE app (visit recording + admin stats) in permanent
+                    // localStorage-only mode - this was the real cause of "only my own visits".
+                    (async () => {
+                        try {
+                            const [prodDocs, settingsDoc] = await Promise.all([
+                                restListCollection(['artifacts', appId, 'public', 'data', 'products']),
+                                restGetDoc(['artifacts', appId, 'public', 'data', 'settings', 'config'])
+                            ]);
+                            if (settingsDoc && Array.isArray(settingsDoc.productsOrder)) savedOrder = settingsDoc.productsOrder;
+                            if (settingsDoc && settingsDoc.whatsapp) setWhatsappNumber(settingsDoc.whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER);
+                            if (settingsDoc && Array.isArray(settingsDoc.slides) && settingsDoc.slides.length) setSlides(settingsDoc.slides);
+                            if (prodDocs.length) setProducts(applyOrder(prodDocs));
+                            resolvedInitial = true;
+                            setLoading(false);
+                        } catch (e) { console.warn('REST initial products/settings fetch failed', e); }
+                    })();
+
                     const unsubProducts = onSnapshot(productsRef, (snapshot) => {
                         const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         setProducts(applyOrder(prods)); setLoading(false);
-                    }, (error) => { 
-                        console.error("Snapshot Error", error);
-                        setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS); 
-                        forceOffline();
+                    }, (error) => {
+                        // Do NOT forceOffline() here: REST already loaded (or will load) real
+                        // data above. onSnapshot is a "nice-to-have" for live updates only.
+                        console.warn("onSnapshot(products) blocked - relying on REST fetch instead", error);
+                        if (!resolvedInitial) { setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS); setLoading(false); }
                     });
-                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && Array.isArray(docSnap.data().productsOrder)) savedOrder = docSnap.data().productsOrder; if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(docSnap.data().slides); });
+                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && Array.isArray(docSnap.data().productsOrder)) savedOrder = docSnap.data().productsOrder; if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(docSnap.data().slides); }, (error) => { console.warn('onSnapshot(settings) blocked', error); });
                     return () => { unsubProducts(); unsubSettings(); };
                 } else {
                     setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS);
