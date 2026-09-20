@@ -2759,7 +2759,7 @@
                         console.warn("onSnapshot(products) blocked - relying on REST fetch instead", error);
                         if (!resolvedInitial) { setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS); setLoading(false); }
                     });
-                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && Array.isArray(docSnap.data().productsOrder)) savedOrder = docSnap.data().productsOrder; if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(docSnap.data().slides); }, (error) => { console.warn('onSnapshot(settings) blocked', error); });
+                    const unsubSettings = onSnapshot(settingsRef, (docSnap) => { if (docSnap.exists() && Array.isArray(docSnap.data().productsOrder)) savedOrder = docSnap.data().productsOrder; if (docSnap.exists() && docSnap.data().whatsapp) setWhatsappNumber(docSnap.data().whatsapp); else setWhatsappNumber(DEFAULT_WHATSAPP_NUMBER); if (docSnap.exists() && Array.isArray(docSnap.data().slides) && docSnap.data().slides.length) setSlides(normalizeSlides(docSnap.data().slides)); else if (docSnap.exists()) setSlides(DEFAULT_SLIDES); }, (error) => { console.warn('onSnapshot(settings) blocked', error); });
                     return () => { unsubProducts(); unsubSettings(); };
                 } else {
                     setProducts(JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS);
