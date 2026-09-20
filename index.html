@@ -3104,6 +3104,8 @@
             </div>
           );
 
+        const ADMIN_SESSION_KEY = "tech_admin_session_v1";
+
         const handleHashChange = () => {
           const hash = window.location.hash;
           if (hash.startsWith("#/product/")) {
@@ -3114,7 +3116,7 @@
             if (foundProduct) setSelectedProduct(foundProduct);
             else {
               setSelectedProduct(null);
-              window.location.hash = "";
+              if (products.length > 0) window.location.hash = "";
             }
           } else setSelectedProduct(null);
           window.scrollTo(0, 0);
@@ -3126,6 +3128,16 @@
           return () =>
             window.removeEventListener("hashchange", handleHashChange);
         }, [products]);
+
+        useEffect(() => {
+          try {
+            if (localStorage.getItem(ADMIN_SESSION_KEY) === "1") {
+              setIsAdmin(true);
+              if (window.location.hash.startsWith("#/admin/visitors"))
+                setShowVisitorsPage(true);
+            }
+          } catch (e) {}
+        }, []);
 
         const openProductLink = (product) => {
           window.location.hash = `#/product/${product.id}`;
@@ -4082,6 +4094,10 @@
 
           if (isValid) {
             setIsAdmin(true);
+            try {
+              localStorage.setItem(ADMIN_SESSION_KEY, "1");
+            } catch (e) {}
+            window.location.hash = "#/admin";
             setShowLoginModal(false);
             setLoginCode("");
             setLoginError("");
@@ -4316,7 +4332,10 @@
             return (
               <VisitorsLogPage
                 lang={lang}
-                onBack={() => setShowVisitorsPage(false)}
+                onBack={() => {
+                  setShowVisitorsPage(false);
+                  window.location.hash = "#/admin";
+                }}
                 isOfflineMode={isOfflineMode}
                 stats={stats}
                 productViews={productViews}
@@ -4360,7 +4379,14 @@
                       <span>{lang === "ar" ? "EN" : "عربي"}</span>
                     </button>
                     <button
-                      onClick={() => setIsAdmin(false)}
+                      onClick={() => {
+                        try {
+                          localStorage.removeItem(ADMIN_SESSION_KEY);
+                        } catch (e) {}
+                        setIsAdmin(false);
+                        setShowVisitorsPage(false);
+                        window.location.hash = "";
+                      }}
                       aria-label={t.logout}
                       className="size-9 rounded-xl bg-rose-100 text-rose-600 grid place-items-center"
                     >
@@ -4410,7 +4436,10 @@
                     {t.settings}
                   </button>
                   <button
-                    onClick={() => setShowVisitorsPage(true)}
+                    onClick={() => {
+                      setShowVisitorsPage(true);
+                      window.location.hash = "#/admin/visitors";
+                    }}
                     className="shrink-0 px-3 h-8 rounded-lg admin-subtle text-xs font-bold flex items-center gap-1"
                   >
                     <Users size={14} />
