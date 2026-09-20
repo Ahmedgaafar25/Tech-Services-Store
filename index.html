@@ -1493,11 +1493,44 @@
             return translations[lang].unexpectedError;
         };
 
+        const restIncrementField = async (segments, fieldPath) => {
+            try {
+                const headers = { 'Content-Type': 'application/json', ...(await getRestAuthHeaders()) };
+                const docName = `projects/${firebaseConfig.projectId}/databases/(default)/documents/${segments.join('/')}`;
+                const commitUrl = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:commit?key=${firebaseConfig.apiKey}`;
+                const res = await fetch(commitUrl, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        writes: [{
+                            transform: {
+                                document: docName,
+                                fieldTransforms: [{ fieldPath, increment: { integerValue: '1' } }]
+                            }
+                        }]
+                    })
+                });
+                return res.ok;
+            } catch (e) {
+                console.warn('restIncrementField failed', e);
+                return false;
+            }
+        };
+
         const trackProductView = async (productId) => {
+            if (!productId) return;
+            const sessionKey = 'viewed_product_' + productId;
+            if (sessionStorage.getItem(sessionKey)) return;
+            sessionStorage.setItem(sessionKey, '1');
+            try {
+                const lv = JSON.parse(localStorage.getItem('local_product_views') || '{}');
+                lv[productId] = (lv[productId] || 0) + 1;
+                localStorage.setItem('local_product_views', JSON.stringify(lv));
+            } catch (e) {}
             if (!isFirebaseConfigured || !appId) return;
             try {
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'products', productId);
-                await setDoc(ref, { views: increment(1) }, { merge: true });
+                // Valid path: collection/document pairs. Old path under stats/products/{id} had an odd number of segments and never saved.
+                await restIncrementField(['artifacts', appId, 'public', 'data', 'product_views', productId], 'views');
             } catch (err) { console.error("Analytics Error", err); }
         };
 
@@ -1894,8 +1927,11 @@
                 const interval = setInterval(run, 15000);
                 return () => { cancelled = true; clearInterval(interval); };
             }, []);
-            let pv = productViews || {};
-            if (isOfflineMode || Object.keys(pv).length === 0) { try { pv = JSON.parse(localStorage.getItem('local_product_views') || '{}'); } catch(e) { pv = {}; } }
+            let pv = { ...(productViews || {}) };
+            try {
+                const localPv = JSON.parse(localStorage.getItem('local_product_views') || '{}');
+                Object.keys(localPv).forEach(id => { pv[id] = Math.max(pv[id] || 0, localPv[id] || 0); });
+            } catch (e) {}
             const pvRows = (products || []).map(p => ({ p, views: pv[p.id] || 0 })).sort((a, b) => b.views - a.views);
             const maxViews = Math.max(1, ...pvRows.map(r => r.views));
             const topCountries = Object.entries(stats?.topCountries || {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -2086,12 +2122,6 @@
             
             const openProductLink = (product) => {
                 window.location.hash = `#/product/${product.id}`;
-                try {
-                    const lv = JSON.parse(localStorage.getItem('local_product_views') || '{}');
-                    lv[product.id] = (lv[product.id] || 0) + 1;
-                    localStorage.setItem('local_product_views', JSON.stringify(lv));
-                } catch (e) {}
-                trackProductView(product.id);
             };
             
             const navigateHome = () => { 
@@ -2227,7 +2257,7 @@
                             }
                         } catch (e) { console.warn('restGetDoc(daily) failed', e); }
                         try {
-                            const pvDocs = await restListCollection(['artifacts', appId, 'public', 'data', 'stats', 'products']);
+                            const pvDocs = await restListCollection(['artifacts', appId, 'public', 'data', 'product_views']);
                             if (!cancelled) {
                                 const pv = {};
                                 pvDocs.forEach(d => { pv[d.id] = d.views || 0; });
