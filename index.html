@@ -5587,16 +5587,6 @@
               </div>
             )}
 
-            {!selectedProduct && (
-              <button
-                onClick={() => openWhatsapp()}
-                className="fixed bottom-5 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-6 md:bottom-6 bg-green-500 hover:bg-green-600 text-white px-5 py-3 md:px-4 md:py-4 rounded-full shadow-xl z-50 transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 font-bold"
-                aria-label="WhatsApp"
-              >
-                <MessageCircle size={22} />
-                <span className="text-sm md:hidden">{t.orderWhatsapp}</span>
-              </button>
-            )}
           </main>
         );
       }
