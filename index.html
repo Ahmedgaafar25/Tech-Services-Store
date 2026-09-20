@@ -750,48 +750,51 @@
       /* SLIDES_START */
       const DEFAULT_SLIDES = [
         {
-          id: "slide1",
-          title: "اشتراكات رقمية أصلية",
-          title_en: "Original digital subscriptions",
+          id: "slide-productivity",
+          eyebrow: "حلول العمل والإبداع",
+          eyebrow_en: "WORK & CREATIVITY",
+          title: "كل أدوات إنتاجيتك في مكان واحد",
+          title_en: "Your productivity toolkit, all in one place",
           subtitle:
-            "مايكروسوفت، أدوبي، الذكاء الاصطناعي ولينكدإن بأسعار واضحة وضمان كامل المدة",
+            "اشتراكات Microsoft وAdobe الأصلية بأسعار واضحة وضمان طوال مدة الاشتراك",
           subtitle_en:
-            "Microsoft, Adobe, AI and LinkedIn with clear pricing and full-term warranty",
+            "Original Microsoft and Adobe subscriptions with clear pricing and full-term warranty",
+          cta: "استكشف برامج العمل",
+          cta_en: "Explore productivity apps",
           imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-offers.jpg?v=2",
+            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-productivity.jpg?v=1",
           productId: "",
         },
         {
-          id: "slide2",
-          title: "تفعيل موثوق بضمان المدة",
-          title_en: "Reliable activation with warranty",
-          subtitle: "اشتراك مفعّل بعناية، مع متابعة بعد البيع حتى نهاية المدة",
+          id: "slide-ai",
+          eyebrow: "ذكاء اصطناعي أقوى",
+          eyebrow_en: "PREMIUM AI TOOLS",
+          title: "حوّل أفكارك إلى إنجاز أسرع",
+          title_en: "Turn ideas into results, faster",
+          subtitle:
+            "اختر من أقوى اشتراكات الذكاء الاصطناعي للكتابة والبحث والتصميم",
           subtitle_en:
-            "Carefully activated access, with after-sale follow-up for the full term",
+            "Choose leading AI subscriptions for writing, research, and creative work",
+          cta: "تصفّح خدمات AI",
+          cta_en: "Browse AI services",
           imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-original.jpg?v=2",
+            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-ai-tools.jpg?v=1",
           productId: "",
         },
         {
-          id: "slide3",
-          title: "التفعيل خلال دقائق",
-          title_en: "Activated within minutes",
-          subtitle: "بعد تأكيد الطلب يصلك الاشتراك بسرعة عبر واتساب",
+          id: "slide-support",
+          eyebrow: "شراء بثقة",
+          eyebrow_en: "BUY WITH CONFIDENCE",
+          title: "تفعيل سريع ودعم مستمر",
+          title_en: "Fast activation. Support that stays",
+          subtitle:
+            "نراجع طلبك ونساعدك في التفعيل، مع متابعة حقيقية بعد الشراء",
           subtitle_en:
-            "After order confirmation, delivery is handled quickly on WhatsApp",
+            "We verify your order, help with activation, and support you after purchase",
+          cta: "اختر اشتراكك الآن",
+          cta_en: "Choose your subscription",
           imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-activation.jpg?v=2",
-          productId: "",
-        },
-        {
-          id: "slide4",
-          title: "دعم مباشر بعد الشراء",
-          title_en: "Direct support after purchase",
-          subtitle: "فريق المتجر معك لأي استفسار أو مشكلة في التفعيل",
-          subtitle_en:
-            "The store team stays with you for activation questions and follow-up",
-          imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-support.jpg?v=2",
+            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-support-care.jpg?v=1",
           productId: "",
         },
       ];
@@ -800,6 +803,10 @@
         "اشتراكات أصلية 100%",
         "تفعيل فوري ⚡",
         "دعم فني 24/7",
+        "اشتراكات رقمية أصلية",
+        "تفعيل موثوق بضمان المدة",
+        "التفعيل خلال دقائق",
+        "دعم مباشر بعد الشراء",
       ];
       const normalizeSlides = (slides) => {
         if (!Array.isArray(slides) || !slides.length) return DEFAULT_SLIDES;
@@ -2453,7 +2460,7 @@
         };
         return (
           <div
-            className="relative w-[100vw] left-1/2 -translate-x-1/2 h-48 sm:h-56 md:h-80 overflow-hidden shadow-lg group animate-fade-in"
+            className="relative w-[100vw] left-1/2 -translate-x-1/2 h-56 sm:h-64 md:h-[22rem] overflow-hidden bg-slate-950 shadow-xl group animate-fade-in"
             dir="ltr"
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
@@ -2470,25 +2477,35 @@
                   {slide.imageUrl && (
                     <img
                       src={slide.imageUrl}
-                      alt=""
-                      className="w-full h-full object-cover object-center"
-                      loading="lazy"
+                      alt={lang === "en" && slide.title_en ? slide.title_en : slide.title}
+                      className="w-full h-full object-cover object-left"
+                      loading={i === 0 ? "eager" : "lazy"}
+                      fetchPriority={i === 0 ? "high" : "auto"}
+                      width="1536"
+                      height="768"
                       draggable="false"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/5 pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-gradient-to-l from-slate-950/95 via-slate-950/65 to-slate-950/5 pointer-events-none"></div>
                   <div
                     dir={lang === "ar" ? "rtl" : "ltr"}
-                    className="absolute inset-x-0 bottom-0 p-4 md:p-10 flex justify-center"
+                    className="absolute inset-0 flex items-center justify-end px-5 sm:px-10 md:px-16 lg:px-24"
                   >
-                    <div className="max-w-3xl w-full text-center rounded-2xl bg-slate-950/55 backdrop-blur-md px-4 py-3 md:px-8 md:py-5 shadow-2xl ring-1 ring-white/10">
-                      <h2 className="text-lg sm:text-2xl md:text-4xl font-black mb-1 md:mb-2 text-white drop-shadow-lg">
+                    <div className="w-[62%] sm:w-[56%] md:w-[48%] lg:w-[44%] text-right">
+                      {(slide.eyebrow || slide.eyebrow_en) && (
+                        <span className="inline-flex mb-2 md:mb-3 text-[10px] md:text-xs font-black text-blue-200 tracking-wider">
+                          {lang === "en" && slide.eyebrow_en
+                            ? slide.eyebrow_en
+                            : slide.eyebrow}
+                        </span>
+                      )}
+                      <h2 className="text-lg sm:text-2xl md:text-4xl font-black leading-tight mb-2 md:mb-3 text-white drop-shadow-lg">
                         {lang === "en" && slide.title_en
                           ? slide.title_en
                           : slide.title}
                       </h2>
                       {slide.subtitle && (
-                        <p className="text-xs md:text-base text-white/95 font-semibold mb-2.5 md:mb-4 line-clamp-2 drop-shadow">
+                        <p className="text-[11px] sm:text-sm md:text-base leading-relaxed text-slate-100 font-semibold mb-3 md:mb-5 line-clamp-3 drop-shadow">
                           {lang === "en" && slide.subtitle_en
                             ? slide.subtitle_en
                             : slide.subtitle}
@@ -2496,9 +2513,11 @@
                       )}
                       <button
                         onClick={() => onSlideClick(slide)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 md:px-7 md:py-2.5 rounded-xl font-bold shadow-lg hover:shadow-blue-500/30 transition text-xs md:text-base"
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl font-bold shadow-lg hover:shadow-blue-500/30 transition text-[11px] sm:text-sm md:text-base"
                       >
-                        {t.viewOffer}
+                        {lang === "en" && slide.cta_en
+                          ? slide.cta_en
+                          : slide.cta || t.viewOffer}
                       </button>
                     </div>
                   </div>
