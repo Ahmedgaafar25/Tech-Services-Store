@@ -1950,7 +1950,11 @@
             `${FIRESTORE_REST_BASE}/${segments.join("/")}?key=${firebaseConfig.apiKey}&pageSize=300` +
             (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
           const res = await fetch(url, { headers });
-          if (!res.ok) throw new Error("restListCollection " + res.status);
+          if (!res.ok) {
+            const err = new Error("restListCollection " + res.status);
+            err.status = res.status;
+            throw err;
+          }
           const data = await res.json();
           const docs = (data.documents || []).map(restDocToJs);
           all = all.concat(docs);
@@ -1958,6 +1962,38 @@
           pageToken = data.nextPageToken;
         }
         return all;
+      };
+
+      // Reads a single collection ordered/limited SERVER-side. Far cheaper than
+      // listing the whole collection (Firestore bills one read per returned doc),
+      // which was exhausting the daily free quota and returning HTTP 429.
+      const restQueryCollection = async (segments, orderField, limit) => {
+        const headers = await getRestAuthHeaders();
+        const parentSegments = segments.slice(0, -1);
+        const collectionId = segments[segments.length - 1];
+        const url = `${FIRESTORE_REST_BASE}${parentSegments.length ? "/" + parentSegments.join("/") : ""}:runQuery?key=${firebaseConfig.apiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            structuredQuery: {
+              from: [{ collectionId }],
+              orderBy: [
+                { field: { fieldPath: orderField }, direction: "DESCENDING" },
+              ],
+              limit,
+            },
+          }),
+        });
+        if (!res.ok) {
+          const err = new Error("restQueryCollection " + res.status);
+          err.status = res.status;
+          throw err;
+        }
+        const data = await res.json();
+        return (data || [])
+          .filter((row) => row && row.document)
+          .map((row) => restDocToJs(row.document));
       };
 
       const getErrorMessage = (error, lang) => {
@@ -2663,6 +2699,8 @@
         const [visits, setVisits] = useState([]);
         const [loadingVisits, setLoadingVisits] = useState(true);
         const [visitsSource, setVisitsSource] = useState("cloud");
+        const [quotaExceeded, setQuotaExceeded] = useState(false);
+        const [refreshing, setRefreshing] = useState(false);
         const t = translations[lang];
         const normalizeCountry = (c) => {
           if (!c) return "Unknown";
@@ -2696,13 +2734,11 @@
           // WebChannel returns stale/empty/local-only results on some networks & browsers,
           // while the REST endpoint (verified directly) always returns the true server data.
           try {
-            const list = await restListCollection([
-              "artifacts",
-              appId,
-              "public",
-              "data",
-              "visits",
-            ]);
+            const list = await restQueryCollection(
+              ["artifacts", appId, "public", "data", "visits"],
+              "ts",
+              300,
+            );
             list.forEach((v) => {
               v.country = normalizeCountry(v.country);
             });
@@ -2712,7 +2748,11 @@
             setLoadingVisits(false);
             return true;
           } catch (e) {
-            console.warn("restListCollection(visits) failed", e);
+            console.warn("visits query failed", e);
+            if (e && e.status === 429) {
+              setQuotaExceeded(true);
+              setLoadingVisits(false);
+            }
             return false;
           }
         };
@@ -2734,12 +2774,23 @@
             }
           };
           run();
-          const interval = setInterval(run, 15000);
+          // Poll rarely and only while the tab is actually visible: each refresh
+          // costs one Firestore read per visit document.
+          const interval = setInterval(() => {
+            if (document.visibilityState === "visible") run();
+          }, 120000);
           return () => {
             cancelled = true;
             clearInterval(interval);
           };
         }, []);
+
+        const manualRefresh = async () => {
+          setRefreshing(true);
+          setQuotaExceeded(false);
+          await fetchVisitsOnce();
+          setRefreshing(false);
+        };
         let pv = { ...(productViews || {}) };
         try {
           const localPv = JSON.parse(
@@ -2859,10 +2910,31 @@
                 )}
               </div>
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300">
-                  {t.visitorsLog} ({visits.length})
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between gap-3">
+                  <span>
+                    {t.visitorsLog} ({visits.length})
+                  </span>
+                  <button
+                    onClick={manualRefresh}
+                    disabled={refreshing}
+                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-60 transition"
+                  >
+                    {refreshing
+                      ? lang === "ar"
+                        ? "جاري التحديث..."
+                        : "Refreshing..."
+                      : lang === "ar"
+                        ? "تحديث"
+                        : "Refresh"}
+                  </button>
                 </div>
-                {loadingVisits ? (
+                {quotaExceeded ? (
+                  <p className="p-8 text-center text-amber-600 dark:text-amber-400 text-sm font-bold leading-relaxed">
+                    {lang === "ar"
+                      ? "تم تجاوز الحد اليومي المجاني لقراءة البيانات، فمش قادر أعرض سجل الزوار دلوقتي. الحد بيتجدد تلقائيًا كل يوم."
+                      : "The free daily database read quota has been exceeded, so the log can't be shown right now. It resets automatically each day."}
+                  </p>
+                ) : loadingVisits ? (
                   <div className="p-8 text-center">
                     <Loader className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
                   </div>
@@ -3353,10 +3425,10 @@
             }
           };
           loadViews();
-          const interval = setInterval(loadViews, 30000);
+          // No polling here: this collection was re-read every 30s by EVERY visitor,
+          // which burned the whole daily Firestore read quota (HTTP 429).
           return () => {
             cancelled = true;
-            clearInterval(interval);
           };
         }, []);
 
@@ -3443,7 +3515,9 @@
               }
             };
             loadStats();
-            const interval = setInterval(loadStats, 15000);
+            const interval = setInterval(() => {
+              if (document.visibilityState === "visible") loadStats();
+            }, 120000);
             return () => {
               cancelled = true;
               clearInterval(interval);
