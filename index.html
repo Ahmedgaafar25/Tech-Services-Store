@@ -2036,6 +2036,22 @@
         }
       };
 
+      // The lifetime visitor counter must never go backwards, even when a cloud
+      // read fails or the daily quota is hit. We mirror the highest value we ever
+      // saw into localStorage and always display the maximum.
+      const TOTAL_VISITS_CACHE_KEY = "cloud_total_visits_cache";
+      const readCachedTotalVisits = () => {
+        const n = parseInt(localStorage.getItem(TOTAL_VISITS_CACHE_KEY) || "0", 10);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const rememberTotalVisits = (value) => {
+        const n = parseInt(value, 10);
+        if (!Number.isFinite(n)) return readCachedTotalVisits();
+        const best = Math.max(n, readCachedTotalVisits());
+        localStorage.setItem(TOTAL_VISITS_CACHE_KEY, String(best));
+        return best;
+      };
+
       const trackProductView = async (productId) => {
         if (!productId) return;
         const sessionKey = "viewed_product_" + productId;
@@ -3301,6 +3317,7 @@
             localStorage.getItem("local_total_visits") || "0",
           );
           localStorage.setItem("local_total_visits", currentTotal + 1);
+          rememberTotalVisits(readCachedTotalVisits() + 1);
 
           const today = new Date().toISOString().split("T")[0];
           const currentDailyKey = `local_daily_${today}`;
@@ -3448,9 +3465,10 @@
                   "general",
                 ]);
                 if (!cancelled && general) {
+                  const best = rememberTotalVisits(general.totalVisits || 0);
                   setStats((prev) => ({
                     ...prev,
-                    totalVisits: general.totalVisits || 0,
+                    totalVisits: best,
                   }));
                   cloudOk = true;
                 }
@@ -3501,7 +3519,10 @@
                 console.warn("restListCollection(product views) failed", e);
               }
               if (!cloudOk && !cancelled) {
-                const total = localStorage.getItem("local_total_visits") || 0;
+                const total = Math.max(
+                  parseInt(localStorage.getItem("local_total_visits") || "0", 10) || 0,
+                  readCachedTotalVisits(),
+                );
                 const dailyLocal =
                   localStorage.getItem(`local_daily_${today}`) || 0;
                 const countries = JSON.parse(
