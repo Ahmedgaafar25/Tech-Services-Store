@@ -838,19 +838,23 @@
           warranty_policy: "ضمان كامل لمدة 18 شهرًا (سنة ونصف).",
           warranty_policy_en: "Full warranty for 18 months.",
         } : {
-          activation_method: readyAccount ? "يتم تسليمك حسابًا جاهزًا للاستخدام، يشمل البريد الإلكتروني وكلمة المرور، بدلًا من التفعيل على بريدك الشخصي." : "يتم تأكيد طريقة التفعيل ومتطلبات هذا المنتج معك قبل إتمام الطلب.",
-          activation_method_en: readyAccount ? "You receive a ready-to-use account with its email address and password, rather than activation on your personal email." : "The activation method and requirements for this product are confirmed with you before your order is completed.",
+          activation_method: readyAccount ? "يتم تسليمك حسابًا جاهزًا للاستخدام من المتجر، يشمل البريد الإلكتروني وكلمة المرور، بدلًا من التفعيل على بريدك الشخصي." : "يتم تفعيل الاشتراك على بريدك الإلكتروني الشخصي.",
+          activation_method_en: readyAccount ? "The store provides a ready-to-use account with its email address and password, rather than activation on your personal email." : "Your subscription is activated on your personal email address.",
           activation_process: readyAccount ? "تُسلَّم لك بيانات الدخول لاستخدام الخدمة. يتم تأكيد موعد التسليم وترتيب الدفع معك قبل إتمام الطلب." : "يتم توضيح خطوات التفعيل وموعد التنفيذ وترتيب الدفع قبل إتمام الطلب.",
           activation_process_en: readyAccount ? "Login details are provided for access to the service. Delivery timing and payment arrangements are confirmed before completing the order." : "Activation steps, timing, and payment arrangements are explained before completing the order.",
-          warranty_policy: "ضمان كامل طوال مدة الاشتراك. يتم توضيح آلية معالجة المشكلات وأي شروط للاستبدال أو الاسترداد قبل إتمام الطلب.",
-          warranty_policy_en: "Full warranty throughout the subscription period. Issue resolution and any replacement or refund conditions are clarified before completing the order.",
+          warranty_policy: "ضمان كامل طوال مدة الاشتراك.",
+          warranty_policy_en: "Full warranty throughout the subscription period.",
         };
         const legacyWarranty = {
+          activation_method: "يتم تأكيد طريقة التفعيل ومتطلبات هذا المنتج معك قبل إتمام الطلب.",
+          activation_method_en: "The activation method and requirements for this product are confirmed with you before your order is completed.",
           warranty_policy: "يتم توضيح مدة الضمان وشروطه وآلية معالجة المشكلات، وأي شروط للاستبدال أو الاسترداد، قبل إتمام الطلب.",
           warranty_policy_en: "Warranty duration, coverage, issue resolution, and any replacement or refund conditions are clarified before completing the order.",
         };
         return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => {
           let saved = typeof product[key] === "string" ? product[key].trim() : "";
+          if (key === "warranty_policy") saved = saved.replace(/يتم توضيح آلية معالجة المشكلات وأي شروط للاستبدال أو الاسترداد قبل إتمام الطلب\.?/g, "").trim();
+          if (key === "warranty_policy_en") saved = saved.replace(/Issue resolution and any replacement or refund conditions are clarified before completing the order\.?/gi, "").trim();
           if (key === "warranty_policy") saved = saved.replace(/،?\s*يشمل استبدال الحساب عند حدوث مشكلة واسترداد المبلغ ضمن الضمان\.?/g, "").trim();
           if (key === "warranty_policy_en") saved = saved.replace(/,?\s*including account replacement if an issue occurs and a refund covered by the warranty\.?/gi, "").trim();
           return [key, saved && saved !== legacyWarranty[key] ? saved : fallback];
