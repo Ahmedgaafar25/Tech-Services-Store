@@ -842,10 +842,17 @@
           activation_method_en: readyAccount ? "You receive a ready-to-use account with its email address and password, rather than activation on your personal email." : "The activation method and requirements for this product are confirmed with you before your order is completed.",
           activation_process: readyAccount ? "تُسلَّم لك بيانات الدخول لاستخدام الخدمة. يتم تأكيد موعد التسليم وترتيب الدفع معك قبل إتمام الطلب." : "يتم توضيح خطوات التفعيل وموعد التنفيذ وترتيب الدفع قبل إتمام الطلب.",
           activation_process_en: readyAccount ? "Login details are provided for access to the service. Delivery timing and payment arrangements are confirmed before completing the order." : "Activation steps, timing, and payment arrangements are explained before completing the order.",
+          warranty_policy: "ضمان كامل طوال مدة الاشتراك. يتم توضيح آلية معالجة المشكلات وأي شروط للاستبدال أو الاسترداد قبل إتمام الطلب.",
+          warranty_policy_en: "Full warranty throughout the subscription period. Issue resolution and any replacement or refund conditions are clarified before completing the order.",
+        };
+        const legacyWarranty = {
           warranty_policy: "يتم توضيح مدة الضمان وشروطه وآلية معالجة المشكلات، وأي شروط للاستبدال أو الاسترداد، قبل إتمام الطلب.",
           warranty_policy_en: "Warranty duration, coverage, issue resolution, and any replacement or refund conditions are clarified before completing the order.",
         };
-        return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [key, typeof product[key] === "string" && product[key].trim() ? product[key].trim() : fallback]));
+        return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => {
+          const saved = typeof product[key] === "string" ? product[key].trim() : "";
+          return [key, saved && saved !== legacyWarranty[key] ? saved : fallback];
+        }));
       };
 
       const DEFAULT_PRODUCTS = [
