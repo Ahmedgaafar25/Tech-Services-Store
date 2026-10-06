@@ -821,6 +821,33 @@
       /* SLIDES_END */
 
       /* PRODUCTS_START */
+      const ACTIVATION_FIELDS = [
+        { key: "activation_method", ar: "طريقة التفعيل", en: "Activation method", Icon: Mail },
+        { key: "activation_process", ar: "آلية التفعيل والدفع", en: "Activation & payment", Icon: CheckCircle },
+        { key: "warranty_policy", ar: "الضمان ومعالجة المشكلات", en: "Warranty & issue resolution", Icon: ShieldCheck },
+      ];
+      const getActivationTerms = (product) => {
+        const identity = `${product.name || ""} ${product.name_en || ""}`.toLowerCase();
+        const readyAccount = /capcut|كاب كت|كابكت|figma|فيجما|github|جيت هاب/.test(identity);
+        const gemini18 = /gemini|google ai|جيميني/.test(identity) && /18|١٨/.test(product.duration || "");
+        const defaults = gemini18 ? {
+          activation_method: "يتم تفعيل الاشتراك على بريدك الإلكتروني الشخصي، دون طلب كلمة المرور الخاصة بك.",
+          activation_method_en: "Your subscription is activated on your personal email address without requesting your password.",
+          activation_process: "يتم تفعيل الاشتراك أولًا، ثم يمكنك التحقق من عمل الخدمة قبل إتمام الدفع.",
+          activation_process_en: "Activation comes first. Verify that the service is working before completing payment.",
+          warranty_policy: "ضمان كامل لمدة 18 شهرًا (سنة ونصف)، يشمل استبدال الحساب عند حدوث مشكلة واسترداد المبلغ ضمن الضمان.",
+          warranty_policy_en: "Full warranty for 18 months, including account replacement if an issue occurs and a refund covered by the warranty.",
+        } : {
+          activation_method: readyAccount ? "يتم تسليمك حسابًا جاهزًا للاستخدام، يشمل البريد الإلكتروني وكلمة المرور، بدلًا من التفعيل على بريدك الشخصي." : "يتم تأكيد طريقة التفعيل ومتطلبات هذا المنتج معك قبل إتمام الطلب.",
+          activation_method_en: readyAccount ? "You receive a ready-to-use account with its email address and password, rather than activation on your personal email." : "The activation method and requirements for this product are confirmed with you before your order is completed.",
+          activation_process: readyAccount ? "تُسلَّم لك بيانات الدخول لاستخدام الخدمة. يتم تأكيد موعد التسليم وترتيب الدفع معك قبل إتمام الطلب." : "يتم توضيح خطوات التفعيل وموعد التنفيذ وترتيب الدفع قبل إتمام الطلب.",
+          activation_process_en: readyAccount ? "Login details are provided for access to the service. Delivery timing and payment arrangements are confirmed before completing the order." : "Activation steps, timing, and payment arrangements are explained before completing the order.",
+          warranty_policy: "يتم توضيح مدة الضمان وشروطه وآلية معالجة المشكلات، وأي شروط للاستبدال أو الاسترداد، قبل إتمام الطلب.",
+          warranty_policy_en: "Warranty duration, coverage, issue resolution, and any replacement or refund conditions are clarified before completing the order.",
+        };
+        return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [key, typeof product[key] === "string" && product[key].trim() ? product[key].trim() : fallback]));
+      };
+
       const DEFAULT_PRODUCTS = [
         {
                 "name": "Google AI Premium",
@@ -2373,6 +2400,20 @@
                     </section>
                   )}
 
+                  <section aria-label={lang === "ar" ? "التفعيل والضمان" : "Activation & warranty"} className="activation-terms space-y-6">
+                    {ACTIVATION_FIELDS.map(({ key, ar, en, Icon }) => (
+                      <div key={key} className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                          {lang === "ar" ? ar : en}
+                        </h3>
+                        <p className="text-slate-600 dark:text-slate-300 leading-loose whitespace-pre-line break-words">
+                          {getActivationTerms(product)[lang === "en" ? `${key}_en` : key]}
+                        </p>
+                      </div>
+                    ))}
+                  </section>
+
                   {product.compatibility && (
                     <section className="bg-blue-50/50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-100 dark:border-blue-900/50">
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
@@ -3080,6 +3121,7 @@
           type: "bundle",
           features: "",
           features_en: "",
+          ...getActivationTerms({}),
         });
 
         useEffect(() => {
@@ -4150,6 +4192,7 @@
             type: p.type || "bundle",
             features: (p.features || []).join("\n"),
             features_en: (p.features_en || []).join("\n"),
+            ...getActivationTerms(p),
           });
           setIsEditing(true);
         };
@@ -4165,6 +4208,7 @@
             description: "",
             imageUrl: "",
             type: "bundle",
+            ...getActivationTerms({}),
           });
           setIsEditing(true);
         };
@@ -5292,6 +5336,21 @@
                           />
                         </div>
                       </div>
+                      <fieldset className="space-y-5 border-t border-slate-200 dark:border-slate-600 pt-5">
+                        <legend className="font-bold text-slate-900 dark:text-white">{lang === "ar" ? "التفعيل والضمان" : "Activation & warranty"}</legend>
+                        {ACTIVATION_FIELDS.map(({ key, ar, en }) => (
+                          <div key={key} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[{ field: key, label: `${ar} — العربية`, dir: "rtl" }, { field: `${key}_en`, label: `${en} — English`, dir: "ltr" }].map(({ field, label, dir }) => (
+                              <label key={field} className="block text-xs font-bold text-slate-500 dark:text-slate-400">
+                                {label}
+                                <textarea rows="4" dir={dir} value={formData[field] || ""}
+                                  onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                                  className="mt-2 w-full p-3 border dark:border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white" />
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </fieldset>
                       <button
                         type="submit"
                         className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
