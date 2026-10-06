@@ -831,15 +831,15 @@
         const readyAccount = /capcut|كاب كت|كابكت|figma|فيجما|github|جيت هاب/.test(identity);
         const gemini18 = /gemini|google ai|جيميني/.test(identity) && /18|١٨/.test(product.duration || "");
         const defaults = gemini18 ? {
-          activation_method: "يتم تفعيل الاشتراك على بريدك الإلكتروني الشخصي، دون طلب كلمة المرور الخاصة بك.",
+          activation_method: "يتم تفعيل الاشتراك على البريد الشخصي، دون طلب كلمة المرور",
           activation_method_en: "Your subscription is activated on your personal email address without requesting your password.",
           activation_process: "يتم تفعيل الاشتراك أولًا، ثم يمكنك التحقق من عمل الخدمة قبل إتمام الدفع.",
           activation_process_en: "Activation comes first. Verify that the service is working before completing payment.",
           warranty_policy: "ضمان كامل لمدة 18 شهرًا (سنة ونصف).",
           warranty_policy_en: "Full warranty for 18 months.",
         } : {
-          activation_method: readyAccount ? "يتم تسليمك حسابًا جاهزًا للاستخدام من المتجر، يشمل البريد الإلكتروني وكلمة المرور، بدلًا من التفعيل على بريدك الشخصي." : "يتم تفعيل الاشتراك على بريدك الإلكتروني الشخصي.",
-          activation_method_en: readyAccount ? "The store provides a ready-to-use account with its email address and password, rather than activation on your personal email." : "Your subscription is activated on your personal email address.",
+          activation_method: readyAccount ? "يتم تسليمك حسابًا جاهزًا للاستخدام من المتجر، يشمل البريد الإلكتروني وكلمة المرور، بدلًا من التفعيل على بريدك الشخصي." : "يتم تفعيل الاشتراك على البريد الشخصي، دون طلب كلمة المرور",
+          activation_method_en: readyAccount ? "The store provides a ready-to-use account with its email address and password, rather than activation on your personal email." : "Your subscription is activated on your personal email address without requesting your password.",
           activation_process: readyAccount ? "تُسلَّم لك بيانات الدخول لاستخدام الخدمة. يتم تأكيد موعد التسليم وترتيب الدفع معك قبل إتمام الطلب." : "يتم توضيح خطوات التفعيل وموعد التنفيذ وترتيب الدفع قبل إتمام الطلب.",
           activation_process_en: readyAccount ? "Login details are provided for access to the service. Delivery timing and payment arrangements are confirmed before completing the order." : "Activation steps, timing, and payment arrangements are explained before completing the order.",
           warranty_policy: "ضمان كامل طوال مدة الاشتراك.",
@@ -853,6 +853,8 @@
         };
         return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => {
           let saved = typeof product[key] === "string" ? product[key].trim() : "";
+          if (!readyAccount && key === "activation_method" && ["يتم تفعيل الاشتراك على بريدك الإلكتروني الشخصي.", "يتم تفعيل الاشتراك على بريدك الإلكتروني الشخصي، دون طلب كلمة المرور الخاصة بك."].includes(saved)) saved = "";
+          if (!readyAccount && key === "activation_method_en" && saved === "Your subscription is activated on your personal email address.") saved = "";
           if (key === "warranty_policy") saved = saved.replace(/يتم توضيح آلية معالجة المشكلات وأي شروط للاستبدال أو الاسترداد قبل إتمام الطلب\.?/g, "").trim();
           if (key === "warranty_policy_en") saved = saved.replace(/Issue resolution and any replacement or refund conditions are clarified before completing the order\.?/gi, "").trim();
           if (key === "warranty_policy") saved = saved.replace(/،?\s*يشمل استبدال الحساب عند حدوث مشكلة واسترداد المبلغ ضمن الضمان\.?/g, "").trim();
