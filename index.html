@@ -4208,7 +4208,8 @@
             price: p.price,
             originalPrice: p.originalPrice || "",
             usdPrice: p.usdPrice || "",
-            description: p.description,
+            description: p.description || "",
+            description_en: p.description_en || "",
             imageUrl: p.imageUrl || "",
             type: p.type || "bundle",
             features: (p.features || []).join("\n"),
@@ -4227,6 +4228,7 @@
             originalPrice: "",
             usdPrice: "",
             description: "",
+            description_en: "",
             imageUrl: "",
             type: "bundle",
             ...getActivationTerms({}),
@@ -5318,6 +5320,17 @@
                             className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-left text-sm bg-white dark:bg-slate-600 dark:text-white"
                           />
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        {[{ field: "description", label: "وصف الخدمة — العربية", dir: "rtl" }, { field: "description_en", label: "Description — English", dir: "ltr" }].map(({ field, label, dir }) => (
+                          <label key={field} className="block text-xs font-bold text-slate-500 dark:text-slate-400">
+                            {label}
+                            <textarea rows="4" dir={dir} value={formData[field] || ""}
+                              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                              className="mt-1 w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white" />
+                          </label>
+                        ))}
                       </div>
 
                       <div className="grid grid-cols-1 gap-3">
