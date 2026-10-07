@@ -143,6 +143,7 @@
         "imports": {
           "react": "https://esm.sh/react@18.2.0",
           "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+          "react-dom": "https://esm.sh/react-dom@18.2.0",
           "lucide-react": "https://esm.sh/lucide-react@0.292.0?external=react"
         }
       }
@@ -294,6 +295,7 @@
     <script type="text/babel" data-type="module">
       import React, { useState, useEffect, useMemo } from "react";
       import { createRoot } from "react-dom/client";
+      import { createPortal } from "react-dom";
       import {
         Zap,
         ShoppingCart,
@@ -3130,6 +3132,22 @@
         const [productViews, setProductViews] = useState({});
         const [isEditing, setIsEditing] = useState(false);
         const [editingProduct, setEditingProduct] = useState(null);
+        const [adminTab, setAdminTabState] = useState(() => {
+          try { return localStorage.getItem("tech_admin_tab_v1") || "overview"; } catch (e) { return "overview"; }
+        });
+        const setAdminTab = (tab) => {
+          setAdminTabState(tab);
+          try { localStorage.setItem("tech_admin_tab_v1", tab); } catch (e) {}
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+        const [editTab, setEditTab] = useState("basic");
+        const [isWideAdmin, setIsWideAdmin] = useState(() => window.innerWidth >= 1024);
+        useEffect(() => {
+          const onResize = () => setIsWideAdmin(window.innerWidth >= 1024);
+          window.addEventListener("resize", onResize);
+          return () => window.removeEventListener("resize", onResize);
+        }, []);
+        const renderEditor = (node) => (isWideAdmin ? node : createPortal(node, document.body));
         const [formData, setFormData] = useState({
           name: "",
           category: "",
@@ -3845,6 +3863,11 @@
         };
         const handleProductSubmit = async (e) => {
           e.preventDefault();
+          if (!String(formData.name || "").trim() || !String(formData.category || "").trim()) {
+            setEditTab("basic");
+            showToast(lang === "ar" ? "اكتب اسم الخدمة والفئة أولًا" : "Enter the service name and category first", "error");
+            return;
+          }
           const submitData = {
             ...formData,
             features: String(formData.features || "")
@@ -4201,6 +4224,7 @@
         };
         const handleEditClick = (p) => {
           setEditingProduct(p);
+          setEditTab("basic");
           setFormData({
             name: p.name,
             category: p.category,
@@ -4220,6 +4244,7 @@
         };
         const handleAddNewClick = () => {
           setEditingProduct(null);
+          setEditTab("basic");
           setFormData({
             name: "",
             category: "",
@@ -4556,63 +4581,47 @@
                     </button>
                   </div>
                 </div>
-                <nav className="admin-nav max-w-7xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto">
-                  <button
-                    onClick={() =>
-                      document
-                        .getElementById("admin-overview")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                    className="shrink-0 px-3 h-8 rounded-lg bg-blue-600 text-white text-xs font-bold"
-                  >
-                    {lang === "ar" ? "نظرة عامة" : "Overview"}
-                  </button>
-                  <button
-                    onClick={() =>
-                      document
-                        .getElementById("admin-products")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                    className="shrink-0 px-3 h-8 rounded-lg admin-subtle text-xs font-bold"
-                  >
-                    {t.manageProducts}
-                  </button>
-                  <button
-                    onClick={() =>
-                      document
-                        .getElementById("admin-slides")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                    className="shrink-0 px-3 h-8 rounded-lg admin-subtle text-xs font-bold"
-                  >
-                    {t.manageSlides}
-                  </button>
-                  <button
-                    onClick={() =>
-                      document
-                        .getElementById("admin-settings")
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                    className="shrink-0 px-3 h-8 rounded-lg admin-subtle text-xs font-bold"
-                  >
-                    {t.settings}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowVisitorsPage(true);
-                      window.location.hash = "#/admin/visitors";
-                    }}
-                    className="shrink-0 px-3 h-8 rounded-lg admin-subtle text-xs font-bold flex items-center gap-1"
-                  >
-                    <Users size={14} />
-                    {t.visitorsLog}
+                <nav className="admin-nav md:hidden max-w-7xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto">
+                  {[
+                  { id: "overview", label: lang === "ar" ? "نظرة عامة" : "Overview", Icon: LayoutDashboard },
+                  { id: "products", label: t.manageProducts, Icon: Edit },
+                  { id: "slides", label: t.manageSlides, Icon: ImageIcon },
+                  { id: "settings", label: t.settings, Icon: Settings },
+                ].map(({ id, label, Icon }) => (
+                    <button key={id} onClick={() => setAdminTab(id)}
+                      className={`shrink-0 px-3 h-9 rounded-lg text-xs font-bold flex items-center gap-1.5 ${adminTab === id ? "bg-blue-600 text-white" : "admin-subtle text-slate-600 dark:text-slate-300"}`}>
+                      <Icon size={14} />{label}
+                    </button>
+                  ))}
+                  <button onClick={() => { setShowVisitorsPage(true); window.location.hash = "#/admin/visitors"; }}
+                    className="shrink-0 px-3 h-9 rounded-lg admin-subtle text-xs font-bold flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <Users size={14} />{t.visitorsLog}
                   </button>
                 </nav>
               </header>
-              <div className="max-w-7xl mx-auto px-4 py-5 md:py-8 space-y-5">
+              <div className="max-w-7xl mx-auto px-4 py-5 md:py-8 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 md:items-start">
+                <aside className="hidden md:block sticky top-24 admin-glass rounded-[24px] p-3 space-y-1">
+                  {[
+                  { id: "overview", label: lang === "ar" ? "نظرة عامة" : "Overview", Icon: LayoutDashboard },
+                  { id: "products", label: t.manageProducts, Icon: Edit },
+                  { id: "slides", label: t.manageSlides, Icon: ImageIcon },
+                  { id: "settings", label: t.settings, Icon: Settings },
+                ].map(({ id, label, Icon }) => (
+                    <button key={id} onClick={() => setAdminTab(id)}
+                      className={`w-full h-11 px-3 rounded-xl text-sm font-bold flex items-center gap-2.5 transition ${adminTab === id ? "bg-blue-600 text-white shadow" : "text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/70"}`}>
+                      <Icon size={17} />{label}
+                    </button>
+                  ))}
+                  <div className="border-t border-white/70 dark:border-slate-700 my-2" />
+                  <button onClick={() => { setShowVisitorsPage(true); window.location.hash = "#/admin/visitors"; }}
+                    className="w-full h-11 px-3 rounded-xl text-sm font-bold flex items-center gap-2.5 text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800/70">
+                    <Users size={17} />{t.visitorsLog}
+                  </button>
+                </aside>
+                <main className="min-w-0 space-y-5">
                 <section
                   id="admin-overview"
-                  className="admin-glass scroll-mt-32 rounded-[28px] p-4 md:p-6"
+                className={`admin-glass scroll-mt-32 rounded-[28px] p-4 md:p-6 ${adminTab === "overview" ? "" : "hidden"}`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -4718,7 +4727,7 @@
 
                 <section
                   id="admin-products"
-                  className="admin-glass scroll-mt-32 p-4 md:p-6 rounded-[28px]"
+                className={`admin-glass scroll-mt-32 p-4 md:p-6 rounded-[28px] ${adminTab === "products" ? "" : "hidden"}`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -4732,7 +4741,9 @@
                       {t.addNew}
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 mb-4">
+                  <div className={isEditing ? "lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-5 lg:items-start" : ""}>
+                  <div className="min-w-0">
+                  <div className={`grid grid-cols-1 gap-2 mb-4 ${isEditing ? "" : "md:grid-cols-[1fr_auto_auto]"}`}>
                     <div className="relative">
                       <Search
                         size={17}
@@ -4797,18 +4808,305 @@
                           onToggleUnavailable={handleToggleUnavailable}
                           onDropItem={handleDropProduct}
                           onTouchStartItem={handleTouchStartItem}
-                          touchOver={touchOverId === p.id}
+                          touchOver={touchOverId === p.id || (isEditing && editingProduct?.id === p.id)}
                           dragging={touchDragId === p.id}
                           lang={lang}
                         />
                       ))}
                     </div>
                   )}
+                  </div>
+              {isEditing && renderEditor(
+                <div dir={lang === "ar" ? "rtl" : "ltr"} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm lg:sticky lg:inset-auto lg:top-24 lg:z-10 lg:bg-transparent lg:backdrop-blur-none lg:p-0 lg:block">
+                  <div className="admin-glass w-full max-w-xl rounded-[28px] shadow-2xl overflow-y-auto max-h-[92vh] lg:max-w-none lg:max-h-[calc(100vh-7.5rem)]">
+                    <div className="p-5 border-b border-white/60 dark:border-slate-700 flex justify-between sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-10">
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                        {editingProduct ? `${t.edit}: ${editingProduct.name}` : t.addNew}
+                      </h3>
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="text-slate-500 hover:text-red-500"
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
+                    <form
+                      onSubmit={handleProductSubmit}
+                      noValidate
+                      className="p-5 space-y-4"
+                    >
+                      <div className="admin-nav flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
+                        {[
+                          { id: "basic", label: lang === "ar" ? "الأساسي" : "Basics" },
+                          { id: "pricing", label: lang === "ar" ? "الأسعار" : "Pricing" },
+                          { id: "media", label: lang === "ar" ? "الصورة" : "Image" },
+                          { id: "content", label: lang === "ar" ? "الوصف والمزايا" : "Description & features" },
+                          { id: "activation", label: lang === "ar" ? "التفعيل والضمان" : "Activation & warranty" },
+                        ].map(({ id, label }) => (
+                          <button type="button" key={id} onClick={() => setEditTab(id)}
+                            className={`shrink-0 h-9 px-3 rounded-lg text-xs font-bold transition ${editTab === id ? "bg-blue-600 text-white" : "admin-subtle text-slate-600 dark:text-slate-300"}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className={editTab === "basic" ? "space-y-4" : "hidden"}>
+                      <input
+                        required
+                        placeholder={t.productName}
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                      />
+                      <input
+                        required
+                        placeholder={t.category}
+                        value={formData.category}
+                        onChange={(e) =>
+                          setFormData({ ...formData, category: e.target.value })
+                        }
+                        className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                      />
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          {t.type}
+                        </label>
+                        <select
+                          value={formData.type}
+                          onChange={(e) =>
+                            setFormData({ ...formData, type: e.target.value })
+                          }
+                          className="w-full p-3 border dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 dark:text-white"
+                        >
+                          <option value="bundle">{t.bundle}</option>
+                          <option value="single">{t.single}</option>
+                        </select>
+                      </div>
+
+                      <input
+                        placeholder={t.duration}
+                        value={formData.duration}
+                        onChange={(e) =>
+                          setFormData({ ...formData, duration: e.target.value })
+                        }
+                        className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                      />
+
+                      </div>
+                      <div className={editTab === "pricing" ? "space-y-4" : "hidden"}>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            {t.price} ({t.currency})
+                          </label>
+                          <input
+                            placeholder="199"
+                            value={formData.price}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                price: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                            {t.originalPrice}
+                          </label>
+                          <input
+                            placeholder="450"
+                            value={formData.originalPrice}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                originalPrice: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                          <Globe size={16} />
+                          {t.internationalPrice} (USD)
+                        </label>
+                        <div className="flex gap-4 items-center">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 10"
+                            value={formData.usdPrice}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                usdPrice: e.target.value,
+                              })
+                            }
+                            className="w-full p-2 border dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 dark:text-white"
+                          />
+                          <div className="text-xs text-slate-500 dark:text-slate-400 min-w-[100px]">
+                            <p>
+                              ≈{" "}
+                              {(
+                                (parseFloat(formData.usdPrice) || 0) * 3.75
+                              ).toFixed(0)}{" "}
+                              {t.sar}
+                            </p>
+                            <p>
+                              ≈{" "}
+                              {(
+                                (parseFloat(formData.usdPrice) || 0) * 3.67
+                              ).toFixed(0)}{" "}
+                              {t.aed}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      </div>
+                      <div className={editTab === "media" ? "space-y-4" : "hidden"}>
+                      <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                          <ImageIcon
+                            size={16}
+                            className="text-blue-600 dark:text-blue-400"
+                          />
+                          {t.imageUpload}
+                        </label>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-20 h-20 bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded-lg flex items-center justify-center overflow-hidden">
+                            {formData.imageUrl ? (
+                              <img
+                                src={formData.imageUrl}
+                                alt="Preview"
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <ImageIcon className="text-slate-300 dark:text-slate-400" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <label className="cursor-pointer bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-200 dark:hover:bg-blue-800 transition inline-flex items-center gap-2">
+                              <Upload size={16} />
+                              {t.uploadDevice}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleImageUpload}
+                              />
+                            </label>
+                            <p className="text-xs text-slate-400 mt-2">
+                              {t.imageSizeWarning}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute top-1/2 -translate-y-1/2 right-3 text-xs font-bold text-slate-400 bg-white dark:bg-slate-600 px-1">
+                            {t.orLink}
+                          </span>
+                          <input
+                            type="url"
+                            placeholder="https://example.com/image.png"
+                            value={formData.imageUrl}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                imageUrl: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-left text-sm bg-white dark:bg-slate-600 dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      </div>
+                      <div className={editTab === "content" ? "space-y-4" : "hidden"}>
+                      <div className="grid grid-cols-1 gap-3">
+                        {[{ field: "description", label: "وصف الخدمة — العربية", dir: "rtl" }, { field: "description_en", label: "Description — English", dir: "ltr" }].map(({ field, label, dir }) => (
+                          <label key={field} className="block text-xs font-bold text-slate-500 dark:text-slate-400">
+                            {label}
+                            <textarea rows="4" dir={dir} value={formData[field] || ""}
+                              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                              className="mt-1 w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white" />
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                            {t.featuresLabel}
+                          </label>
+                          <textarea
+                            rows="3"
+                            placeholder={t.featuresPlaceholder}
+                            value={formData.features}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                features: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                            {t.featuresLabelEn}
+                          </label>
+                          <textarea
+                            dir="ltr"
+                            rows="3"
+                            placeholder={t.featuresPlaceholderEn}
+                            value={formData.features_en}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                features_en: e.target.value,
+                              })
+                            }
+                            className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                      </div>
+                      <fieldset className={editTab === "activation" ? "space-y-5" : "hidden"}>
+                        <legend className="font-bold text-slate-900 dark:text-white">{lang === "ar" ? "التفعيل والضمان" : "Activation & warranty"}</legend>
+                        {ACTIVATION_FIELDS.map(({ key, ar, en }) => (
+                          <div key={key} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[{ field: key, label: `${ar} — العربية`, dir: "rtl" }, { field: `${key}_en`, label: `${en} — English`, dir: "ltr" }].map(({ field, label, dir }) => (
+                              <label key={field} className="block text-xs font-bold text-slate-500 dark:text-slate-400">
+                                {label}
+                                <textarea rows="4" dir={dir} value={formData[field] || ""}
+                                  onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                                  className="mt-2 w-full p-3 border dark:border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white" />
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </fieldset>
+                      <button
+                        type="submit"
+                        className="sticky bottom-0 shadow-lg w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+                      >
+                        {t.saveData}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+                  </div>
                 </section>
-              </div>
               <section
                 id="admin-slides"
-                className="admin-glass scroll-mt-32 p-5 md:p-6 rounded-[28px]"
+                className={`admin-glass scroll-mt-32 p-5 md:p-6 rounded-[28px] ${adminTab === "slides" ? "" : "hidden"}`}
               >
                 <h2 className="text-lg font-black mb-1 flex items-center gap-2 text-slate-900 dark:text-white">
                   <ImageIcon size={20} /> {t.manageSlides}
@@ -5005,7 +5303,7 @@
               </section>
               <section
                 id="admin-settings"
-                className="admin-glass scroll-mt-32 p-5 md:p-6 rounded-[28px] space-y-6"
+                className={`admin-glass scroll-mt-32 p-5 md:p-6 rounded-[28px] space-y-6 ${adminTab === "settings" ? "" : "hidden"}`}
               >
                 <div>
                   <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-white">
@@ -5132,269 +5430,8 @@
                   </div>
                 </div>
               </section>
-              {isEditing && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                  <div className="admin-glass w-full max-w-xl rounded-[28px] shadow-2xl overflow-y-auto max-h-[92vh]">
-                    <div className="p-5 border-b border-white/60 dark:border-slate-700 flex justify-between sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-10">
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                        {editingProduct ? t.edit : t.addNew}
-                      </h3>
-                      <button
-                        onClick={() => setIsEditing(false)}
-                        className="text-slate-500 hover:text-red-500"
-                      >
-                        <X size={24} />
-                      </button>
-                    </div>
-                    <form
-                      onSubmit={handleProductSubmit}
-                      className="p-6 space-y-4"
-                    >
-                      <input
-                        required
-                        placeholder={t.productName}
-                        value={formData.name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, name: e.target.value })
-                        }
-                        className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                      />
-                      <input
-                        required
-                        placeholder={t.category}
-                        value={formData.category}
-                        onChange={(e) =>
-                          setFormData({ ...formData, category: e.target.value })
-                        }
-                        className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                      />
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-                          {t.type}
-                        </label>
-                        <select
-                          value={formData.type}
-                          onChange={(e) =>
-                            setFormData({ ...formData, type: e.target.value })
-                          }
-                          className="w-full p-3 border dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 dark:text-white"
-                        >
-                          <option value="bundle">{t.bundle}</option>
-                          <option value="single">{t.single}</option>
-                        </select>
-                      </div>
-
-                      <input
-                        placeholder={t.duration}
-                        value={formData.duration}
-                        onChange={(e) =>
-                          setFormData({ ...formData, duration: e.target.value })
-                        }
-                        className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                      />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-                            {t.price} ({t.currency})
-                          </label>
-                          <input
-                            placeholder="199"
-                            value={formData.price}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                price: e.target.value,
-                              })
-                            }
-                            className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-                            {t.originalPrice}
-                          </label>
-                          <input
-                            placeholder="450"
-                            value={formData.originalPrice}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                originalPrice: e.target.value,
-                              })
-                            }
-                            className="w-full p-3 border rounded-xl bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
-                        <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
-                          <Globe size={16} />
-                          {t.internationalPrice} (USD)
-                        </label>
-                        <div className="flex gap-4 items-center">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g. 10"
-                            value={formData.usdPrice}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                usdPrice: e.target.value,
-                              })
-                            }
-                            className="w-full p-2 border dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 dark:text-white"
-                          />
-                          <div className="text-xs text-slate-500 dark:text-slate-400 min-w-[100px]">
-                            <p>
-                              ≈{" "}
-                              {(
-                                (parseFloat(formData.usdPrice) || 0) * 3.75
-                              ).toFixed(0)}{" "}
-                              {t.sar}
-                            </p>
-                            <p>
-                              ≈{" "}
-                              {(
-                                (parseFloat(formData.usdPrice) || 0) * 3.67
-                              ).toFixed(0)}{" "}
-                              {t.aed}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 dark:bg-slate-700 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                          <ImageIcon
-                            size={16}
-                            className="text-blue-600 dark:text-blue-400"
-                          />
-                          {t.imageUpload}
-                        </label>
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-20 h-20 bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 rounded-lg flex items-center justify-center overflow-hidden">
-                            {formData.imageUrl ? (
-                              <img
-                                src={formData.imageUrl}
-                                alt="Preview"
-                                className="w-full h-full object-contain"
-                              />
-                            ) : (
-                              <ImageIcon className="text-slate-300 dark:text-slate-400" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <label className="cursor-pointer bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-200 dark:hover:bg-blue-800 transition inline-flex items-center gap-2">
-                              <Upload size={16} />
-                              {t.uploadDevice}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleImageUpload}
-                              />
-                            </label>
-                            <p className="text-xs text-slate-400 mt-2">
-                              {t.imageSizeWarning}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="relative">
-                          <span className="absolute top-1/2 -translate-y-1/2 right-3 text-xs font-bold text-slate-400 bg-white dark:bg-slate-600 px-1">
-                            {t.orLink}
-                          </span>
-                          <input
-                            type="url"
-                            placeholder="https://example.com/image.png"
-                            value={formData.imageUrl}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                imageUrl: e.target.value,
-                              })
-                            }
-                            className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-left text-sm bg-white dark:bg-slate-600 dark:text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3">
-                        {[{ field: "description", label: "وصف الخدمة — العربية", dir: "rtl" }, { field: "description_en", label: "Description — English", dir: "ltr" }].map(({ field, label, dir }) => (
-                          <label key={field} className="block text-xs font-bold text-slate-500 dark:text-slate-400">
-                            {label}
-                            <textarea rows="4" dir={dir} value={formData[field] || ""}
-                              onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-                              className="mt-1 w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white" />
-                          </label>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
-                            {t.featuresLabel}
-                          </label>
-                          <textarea
-                            rows="3"
-                            placeholder={t.featuresPlaceholder}
-                            value={formData.features}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                features: e.target.value,
-                              })
-                            }
-                            className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
-                            {t.featuresLabelEn}
-                          </label>
-                          <textarea
-                            dir="ltr"
-                            rows="3"
-                            placeholder={t.featuresPlaceholderEn}
-                            value={formData.features_en}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                features_en: e.target.value,
-                              })
-                            }
-                            className="w-full p-3 border dark:border-slate-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white"
-                          />
-                        </div>
-                      </div>
-                      <fieldset className="space-y-5 border-t border-slate-200 dark:border-slate-600 pt-5">
-                        <legend className="font-bold text-slate-900 dark:text-white">{lang === "ar" ? "التفعيل والضمان" : "Activation & warranty"}</legend>
-                        {ACTIVATION_FIELDS.map(({ key, ar, en }) => (
-                          <div key={key} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {[{ field: key, label: `${ar} — العربية`, dir: "rtl" }, { field: `${key}_en`, label: `${en} — English`, dir: "ltr" }].map(({ field, label, dir }) => (
-                              <label key={field} className="block text-xs font-bold text-slate-500 dark:text-slate-400">
-                                {label}
-                                <textarea rows="4" dir={dir} value={formData[field] || ""}
-                                  onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-                                  className="mt-2 w-full p-3 border dark:border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white dark:bg-slate-600 dark:text-white" />
-                              </label>
-                            ))}
-                          </div>
-                        ))}
-                      </fieldset>
-                      <button
-                        type="submit"
-                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
-                      >
-                        {t.saveData}
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              )}
+                </main>
+              </div>
             </div>
           );
         }
