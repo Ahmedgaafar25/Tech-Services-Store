@@ -317,6 +317,8 @@
         AlertTriangle,
         Upload,
         ArrowRight,
+        ChevronLeft,
+        ChevronRight,
         Star,
         ShieldCheck,
         Clock,
@@ -2150,7 +2152,13 @@
         }
       };
 
-      const ProductCard = ({ product, onViewDetails, countryCode, lang }) => {
+      const ProductCard = ({
+        product,
+        onViewDetails,
+        onOrder,
+        countryCode,
+        lang,
+      }) => {
         const [imageError, setImageError] = useState(false);
         const pricing = getLocalizedPrice(product, countryCode, lang);
         const content = getLocalizedContent(product, lang);
@@ -2168,86 +2176,138 @@
           setImageError(false);
         }, [product.imageUrl]);
 
+        const discountPercentage = useMemo(() => {
+          if (!product.originalPrice || !product.price) return null;
+          const orig = parseFloat(String(product.originalPrice).replace(/[^0-9.]/g, ""));
+          const curr = parseFloat(String(product.price).replace(/[^0-9.]/g, ""));
+          if (orig > 0 && curr > 0 && orig > curr) {
+            return Math.round(((orig - curr) / orig) * 100);
+          }
+          return null;
+        }, [product.originalPrice, product.price]);
+
         return (
           <article
             onClick={() => onViewDetails(product)}
-            className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 border border-slate-100 dark:border-slate-700 flex flex-col h-full group cursor-pointer relative animate-fade-in"
+            className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-200/80 dark:border-slate-800 flex flex-col h-full group cursor-pointer relative animate-fade-in"
           >
-            {product.originalPrice && !product.unavailable && (
-              <div className="absolute top-3 left-3 z-10 animate-pulse bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
-                {t.offer}
-              </div>
-            )}
-            {product.unavailable && (
-              <div className="absolute top-3 left-3 z-10 bg-slate-700 dark:bg-slate-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
-                {t.unavailable}
+            {/* Discount / Offer Badge */}
+            <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1 items-start">
+              {product.originalPrice && !product.unavailable && (
+                <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white text-[10px] sm:text-[11px] font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-md shadow-red-500/20">
+                  {discountPercentage ? `-${discountPercentage}%` : t.offer}
+                </div>
+              )}
+              {product.unavailable && (
+                <div className="bg-slate-700/90 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
+                  {t.unavailable}
+                </div>
+              )}
+            </div>
+
+            {/* Category Badge */}
+            {categoryLabel && (
+              <div className="absolute top-2.5 right-2.5 bg-slate-900/80 dark:bg-slate-800/80 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm z-10 border border-white/10">
+                {categoryLabel}
               </div>
             )}
 
-            <div className="h-44 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-slate-700 dark:to-slate-800 border-b border-slate-100 dark:border-slate-700 relative flex items-center justify-center p-6">
+            {/* Product Image Area */}
+            <div className="h-32 sm:h-40 md:h-44 overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100/70 dark:from-slate-800/60 dark:to-slate-900/80 border-b border-slate-100 dark:border-slate-800/80 relative flex items-center justify-center p-3 sm:p-5">
               {product.imageUrl && !imageError ? (
                 <img
                   src={product.imageUrl}
                   alt={content.name}
-                  className={`object-contain w-full h-full transform group-hover:scale-110 transition duration-500 ${product.unavailable ? "grayscale opacity-50" : ""}`}
+                  className={`object-contain w-full h-full transform group-hover:scale-105 transition-transform duration-500 ${product.unavailable ? "grayscale opacity-50" : ""}`}
                   onError={() => setImageError(true)}
                   loading="lazy"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center text-slate-300 dark:text-slate-500 group-hover:text-blue-500 transition">
-                  <ImageIcon className="w-16 h-16 mb-2" />
-                  <span className="text-xs font-medium">
+                <div className="flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition">
+                  <ImageIcon className="w-10 h-10 sm:w-14 sm:h-14 mb-1" />
+                  <span className="text-[10px] sm:text-xs font-medium">
                     {t.imgUnavailable}
                   </span>
                 </div>
               )}
-              <div className="absolute top-3 right-3 bg-blue-600/95 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-md z-10">
-                {categoryLabel}
-              </div>
             </div>
 
-            <div className="p-5 flex flex-col flex-grow">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mb-2 line-clamp-1">
+            {/* Content & Actions */}
+            <div className="p-3 sm:p-4 md:p-5 flex flex-col flex-grow">
+              <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition mb-1.5 sm:mb-2 line-clamp-1">
                 {content.name}
               </h3>
 
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className="bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-[11px] px-2 py-0.5 rounded-md font-bold">
-                  {content.duration}
+              <div className="flex items-center gap-1.5 mb-2 sm:mb-3 flex-wrap">
+                {content.duration && (
+                  <span className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md font-bold border border-blue-100 dark:border-blue-900/50">
+                    {content.duration}
+                  </span>
+                )}
+                <span className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md font-bold border border-emerald-100 dark:border-emerald-900/50 flex items-center gap-1">
+                  <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <span>{lang === "ar" ? "أصلي 100%" : "Genuine"}</span>
                 </span>
               </div>
 
-              <div className="flex items-baseline gap-2 mb-3">
+              <div className="flex items-baseline gap-1.5 sm:gap-2 mb-2 sm:mb-3 flex-wrap">
                 <span
-                  className={`text-2xl font-black ${product.price === "ضمن الباقة" ? "text-blue-600 dark:text-blue-400" : "text-slate-900 dark:text-white"}`}
+                  className={`text-lg sm:text-xl md:text-2xl font-black ${product.price === "ضمن الباقة" ? "text-blue-600 dark:text-blue-400" : "text-slate-900 dark:text-white"}`}
                 >
                   {pricing.current}
                 </span>
                 {pricing.original && (
-                  <span className="text-sm text-gray-400 dark:text-gray-500 line-through">
+                  <span className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 line-through">
                     {pricing.original}
                   </span>
                 )}
               </div>
 
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-5 leading-relaxed flex-grow line-clamp-3">
-                {content.description}
-              </p>
+              {content.description && (
+                <p className="hidden md:block text-slate-500 dark:text-slate-400 text-xs sm:text-sm mb-4 leading-relaxed line-clamp-2">
+                  {content.description}
+                </p>
+              )}
 
-              <button
-                disabled={product.unavailable}
-                className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 mt-auto border ${product.unavailable ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed" : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700 shadow-sm hover:shadow-md"}`}
-              >
-                <span>
-                  {product.unavailable ? t.unavailable : t.viewDetails}
-                </span>
-                {!product.unavailable &&
-                  (lang === "ar" ? (
-                    <ArrowLeftRight className="w-4 h-4 rotate-180" />
+              {/* Order Now button (اطلب الآن) & Details button */}
+              <div className="mt-auto pt-2 flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  disabled={product.unavailable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!product.unavailable) {
+                      if (onOrder) onOrder(product);
+                      else onViewDetails(product);
+                    }
+                  }}
+                  className={`w-full py-2 sm:py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 shadow-sm ${
+                    product.unavailable
+                      ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                      : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:shadow-emerald-600/40"
+                  }`}
+                >
+                  {!product.unavailable && (
+                    <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  )}
+                  <span>
+                    {product.unavailable ? t.unavailable : t.orderNow}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onViewDetails(product)}
+                  className="w-full py-1 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1 transition"
+                >
+                  <span>{t.viewDetails}</span>
+                  {lang === "ar" ? (
+                    <ArrowLeftRight className="w-3 h-3 rotate-180" />
                   ) : (
-                    <ArrowRight className="w-4 h-4" />
-                  ))}
-              </button>
+                    <ArrowRight className="w-3 h-3" />
+                  )}
+                </button>
+              </div>
             </div>
           </article>
         );
@@ -2583,7 +2643,7 @@
         };
         return (
           <div
-            className="relative w-[100vw] left-1/2 -translate-x-1/2 h-56 sm:h-64 md:h-[22rem] overflow-hidden bg-slate-950 shadow-xl group animate-fade-in"
+            className="relative w-full h-56 sm:h-72 md:h-80 lg:h-96 rounded-2xl md:rounded-3xl overflow-hidden bg-slate-950 shadow-xl group animate-fade-in"
             dir="ltr"
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
@@ -2595,13 +2655,13 @@
               {slides.map((slide, i) => (
                 <div
                   key={slide.id || i}
-                  className="w-full h-full flex-shrink-0 relative bg-slate-100"
+                  className="w-full h-full flex-shrink-0 relative bg-slate-900"
                 >
                   {slide.imageUrl && (
                     <img
                       src={slide.imageUrl}
                       alt={lang === "en" && slide.title_en ? slide.title_en : slide.title}
-                      className="w-full h-full object-cover object-left"
+                      className="w-full h-full object-cover object-center"
                       loading={i === 0 ? "eager" : "lazy"}
                       fetchPriority={i === 0 ? "high" : "auto"}
                       width="1536"
@@ -2609,26 +2669,26 @@
                       draggable="false"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-l from-slate-950/95 via-slate-950/65 to-slate-950/5 pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-slate-950/20 md:bg-gradient-to-l md:from-slate-950/95 md:via-slate-950/65 md:to-slate-950/10 pointer-events-none"></div>
                   <div
                     dir={lang === "ar" ? "rtl" : "ltr"}
-                    className="absolute inset-0 flex items-center justify-end px-5 sm:px-10 md:px-16 lg:px-24"
+                    className="absolute inset-0 flex items-center justify-end px-4 sm:px-8 md:px-14 lg:px-20"
                   >
-                    <div className="w-[62%] sm:w-[56%] md:w-[48%] lg:w-[44%] text-right">
+                    <div className="w-full sm:w-[70%] md:w-[50%] lg:w-[45%] text-right">
                       {(slide.eyebrow || slide.eyebrow_en) && (
-                        <span className="inline-flex mb-2 md:mb-3 text-[10px] md:text-xs font-black text-blue-200 tracking-wider">
+                        <span className="inline-flex mb-1.5 sm:mb-2 text-[10px] md:text-xs font-black text-blue-300 tracking-wider bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-500/30">
                           {lang === "en" && slide.eyebrow_en
                             ? slide.eyebrow_en
                             : slide.eyebrow}
                         </span>
                       )}
-                      <h2 className="text-lg sm:text-2xl md:text-4xl font-black leading-tight mb-2 md:mb-3 text-white drop-shadow-lg">
+                      <h2 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black leading-tight mb-1.5 sm:mb-2.5 text-white drop-shadow-md">
                         {lang === "en" && slide.title_en
                           ? slide.title_en
                           : slide.title}
                       </h2>
                       {slide.subtitle && (
-                        <p className="text-[11px] sm:text-sm md:text-base leading-relaxed text-slate-100 font-semibold mb-3 md:mb-5 line-clamp-3 drop-shadow">
+                        <p className="text-[11px] sm:text-xs md:text-sm lg:text-base leading-relaxed text-slate-200 font-medium mb-3 sm:mb-4 line-clamp-2 md:line-clamp-3 drop-shadow">
                           {lang === "en" && slide.subtitle_en
                             ? slide.subtitle_en
                             : slide.subtitle}
@@ -2636,26 +2696,55 @@
                       )}
                       <button
                         onClick={() => onSlideClick(slide)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl font-bold shadow-lg hover:shadow-blue-500/30 transition text-[11px] sm:text-sm md:text-base"
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 rounded-xl font-bold shadow-lg hover:shadow-blue-500/40 transition text-xs sm:text-sm md:text-base flex items-center gap-1.5 ml-auto"
                       >
-                        {lang === "en" && slide.cta_en
-                          ? slide.cta_en
-                          : slide.cta || t.viewOffer}
+                        <span>
+                          {lang === "en" && slide.cta_en
+                            ? slide.cta_en
+                            : slide.cta || t.viewOffer}
+                        </span>
+                        {lang === "ar" ? (
+                          <ChevronLeft className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+
             {count > 1 && (
               <>
-                <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                {/* Desktop navigation arrows */}
+                <button
+                  onClick={() => goTo(current - 1)}
+                  aria-label="Previous slide"
+                  className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-slate-900/60 hover:bg-slate-900/90 text-white items-center justify-center backdrop-blur-md border border-white/20 transition opacity-0 group-hover:opacity-100 shadow-lg"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => goTo(current + 1)}
+                  aria-label="Next slide"
+                  className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-slate-900/60 hover:bg-slate-900/90 text-white items-center justify-center backdrop-blur-md border border-white/20 transition opacity-0 group-hover:opacity-100 shadow-lg"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                {/* Dots indicator */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-2 items-center bg-slate-950/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                   {slides.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => goTo(i)}
                       aria-label={"slide " + (i + 1)}
-                      className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full transition ${i === current ? "bg-white scale-110" : "bg-white/40 hover:bg-white/70"}`}
+                      className={`transition-all duration-300 rounded-full ${
+                        i === current
+                          ? "w-6 h-2 bg-blue-500"
+                          : "w-2 h-2 bg-white/40 hover:bg-white/70"
+                      }`}
                     />
                   ))}
                 </div>
@@ -5523,29 +5612,29 @@
               />
             ) : (
               <>
-                <div className="pt-4">
+                <div className="container mx-auto px-3 sm:px-4 pt-3 sm:pt-6">
                   <HeroCarousel
                     slides={slides}
                     lang={lang}
                     onSlideClick={handleSlideClick}
                   />
                 </div>
-                <header className="py-8 md:py-12 text-center container mx-auto px-4 animate-fade-in relative">
-                  <span className="inline-block bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-1.5 rounded-full text-sm font-bold mb-5 border border-blue-100 dark:border-blue-800 animate-fade-in">
+                <header className="py-6 md:py-10 text-center container mx-auto px-4 animate-fade-in relative">
+                  <span className="inline-block bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold mb-3 border border-blue-100 dark:border-blue-800 animate-fade-in">
                     {t.bestValue}
                   </span>
-                  <h1 className="text-3xl md:text-6xl font-black mb-4 md:mb-6 text-slate-900 dark:text-white leading-snug md:leading-relaxed">
+                  <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 text-slate-900 dark:text-white leading-tight">
                     {t.heroTitle1}
-                    <span className="text-blue-600 block md:inline-block mx-0 md:mx-2 mt-2 md:mt-4">
+                    <span className="text-blue-600 block sm:inline-block mx-0 sm:mx-2 mt-1 sm:mt-0">
                       {t.heroTitle2}
                     </span>
                   </h1>
-                  <p className="text-base md:text-xl text-slate-500 dark:text-slate-400 mb-3 max-w-2xl mx-auto leading-relaxed">
+                  <p className="text-xs sm:text-sm md:text-base text-slate-500 dark:text-slate-400 mb-2 max-w-xl mx-auto leading-relaxed">
                     {t.heroDesc}
                   </p>
                   <p
                     dir="ltr"
-                    className="text-sm md:text-base font-bold text-slate-700 dark:text-slate-300 mb-7 tracking-wide"
+                    className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 mb-5 tracking-wide"
                   >
                     {t.heroBrands}
                   </p>
@@ -5555,38 +5644,50 @@
                         .getElementById("products")
                         .scrollIntoView({ behavior: "smooth" })
                     }
-                    className="bg-blue-600 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition"
+                    className="bg-blue-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm shadow-md hover:bg-blue-700 transition"
                   >
                     {t.browseOffers}
                   </button>
                 </header>
                 <section className="container mx-auto px-4 pb-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                     {[
                       {
-                        icon: <ShieldCheck size={18} />,
-                        label: t.trustOriginal,
-                      },
-                      { icon: <Clock size={18} />, label: t.trustInstant },
-                      {
-                        icon: <CheckCircle size={18} />,
-                        label: t.trustWarranty,
+                        icon: <ShieldCheck className="w-5 h-5 text-blue-500" />,
+                        title: t.trustOriginal,
+                        desc: lang === "ar" ? "رسمي ومضمون" : "100% Genuine",
                       },
                       {
-                        icon: <MessageCircle size={18} />,
-                        label: t.trustSupport,
+                        icon: <Clock className="w-5 h-5 text-emerald-500" />,
+                        title: t.trustInstant,
+                        desc: lang === "ar" ? "تسليم سريع" : "Instant delivery",
+                      },
+                      {
+                        icon: <CheckCircle className="w-5 h-5 text-indigo-500" />,
+                        title: t.trustWarranty,
+                        desc: lang === "ar" ? "تعويض فوري" : "Full warranty",
+                      },
+                      {
+                        icon: <MessageCircle className="w-5 h-5 text-sky-500" />,
+                        title: t.trustSupport,
+                        desc: lang === "ar" ? "دعم متواصل" : "24/7 Support",
                       },
                     ].map((item, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl px-3 py-3 shadow-sm"
+                        className="flex items-center gap-2.5 sm:gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm"
                       >
-                        <span className="text-blue-600 dark:text-blue-400 shrink-0">
+                        <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 shrink-0">
                           {item.icon}
-                        </span>
-                        <span className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-200">
-                          {item.label}
-                        </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {item.title}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 truncate">
+                            {item.desc}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -5677,6 +5778,7 @@
                         className={`absolute top-1/2 -translate-y-1/2 ${lang === "ar" ? "right-3" : "left-3"} h-5 w-5 text-slate-400 dark:text-slate-500 pointer-events-none`}
                       />
                       <input
+                        id="search-input"
                         type="text"
                         className={`w-full ${lang === "ar" ? "pr-10 pl-9" : "pl-10 pr-9"} p-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400`}
                         placeholder={t.searchPlaceholder}
@@ -5746,12 +5848,13 @@
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                       {filteredProducts.map((product) => (
                         <ProductCard
                           key={product.id}
                           product={product}
                           onViewDetails={openProductLink}
+                          onOrder={openWhatsapp}
                           countryCode={countryCode}
                           lang={lang}
                         />
@@ -5762,7 +5865,7 @@
               </>
             )}
 
-            <footer className="bg-slate-900 dark:bg-slate-950 text-slate-300 py-12 mt-auto border-t border-slate-800">
+            <footer className="bg-slate-900 dark:bg-slate-950 text-slate-300 py-12 pb-24 md:pb-12 mt-auto border-t border-slate-800">
               <div className="container mx-auto px-4 text-center">
                 <div className="flex items-center justify-center gap-4 mb-6">
                   <StoreLogo light />
@@ -5850,6 +5953,77 @@
               </div>
             )}
 
+            {/* Floating WhatsApp Action Button */}
+            <button
+              type="button"
+              onClick={() => openWhatsapp()}
+              className="fixed bottom-20 md:bottom-6 left-4 md:left-6 z-40 bg-emerald-500 hover:bg-emerald-600 text-white p-3.5 md:p-4 rounded-full shadow-2xl hover:shadow-emerald-500/40 transition-all transform hover:scale-105 flex items-center gap-2 group"
+              aria-label="WhatsApp"
+              title={t.contactUs}
+            >
+              <MessageCircle className="w-6 h-6 shrink-0" />
+              <span className="hidden md:inline font-bold text-sm">{t.contactUs}</span>
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400"></span>
+              </span>
+            </button>
+
+            {/* Mobile Bottom Navigation Bar */}
+            <nav className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-4 py-2 shadow-lg flex items-center justify-around">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedProduct) setSelectedProduct(null);
+                  setSelectedCategory("All");
+                  setSearchQuery("");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="flex flex-col items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-[10px] font-bold">{lang === "ar" ? "الرئيسية" : "Home"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedProduct) setSelectedProduct(null);
+                  const el = document.getElementById("products");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="flex flex-col items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
+              >
+                <Box className="w-5 h-5" />
+                <span className="text-[10px] font-bold">{lang === "ar" ? "العروض" : "Offers"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedProduct) setSelectedProduct(null);
+                  const el = document.getElementById("search-input");
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth" });
+                    el.focus();
+                  }
+                }}
+                className="flex flex-col items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
+              >
+                <Search className="w-5 h-5" />
+                <span className="text-[10px] font-bold">{lang === "ar" ? "البحث" : "Search"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openWhatsapp()}
+                className="flex flex-col items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition"
+              >
+                <MessageCircle className="w-5 h-5" />
+                <span className="text-[10px] font-bold">{t.orderNow}</span>
+              </button>
+            </nav>
+
           </main>
         );
       }
@@ -5857,5 +6031,7 @@
       const root = createRoot(document.getElementById("root"));
       root.render(<App />);
     </script>
-  </body>
+  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920" integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA==" data-cf-beacon='{"version":"2024.11.0","token":"a1e1a8eac67542f0bddff7bde84fa427","r":1,"spa":2}' crossorigin="anonymous"></script>
+</body>
 </html>
+
