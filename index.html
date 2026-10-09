@@ -50,7 +50,7 @@
         transition: background-color 0.3s ease;
       }
       html.dark body {
-        background-color: #020617;
+        background-color: #0b1120;
       }
       .admin-shell {
         background: linear-gradient(
@@ -2192,7 +2192,7 @@
         return (
           <article
             onClick={() => onViewDetails(product)}
-            className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-200/80 dark:border-slate-800 flex flex-col h-full group cursor-pointer relative animate-fade-in"
+            className="bg-white dark:bg-slate-900/90 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-200/80 dark:border-slate-800/90 dark:hover:border-blue-500/50 flex flex-col h-full group cursor-pointer relative animate-fade-in"
           >
             {/* Discount / Offer Badge */}
             <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1 items-start">
@@ -2215,24 +2215,30 @@
               </div>
             )}
 
-            {/* Product Image Area */}
-            <div className="h-32 sm:h-40 md:h-44 overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100/70 dark:from-slate-800/60 dark:to-slate-900/80 border-b border-slate-100 dark:border-slate-800/80 relative flex items-center justify-center p-3 sm:p-5">
-              {product.imageUrl && !imageError ? (
-                <img
-                  src={product.imageUrl}
-                  alt={content.name}
-                  className={`object-contain w-full h-full transform group-hover:scale-105 transition-transform duration-500 ${product.unavailable ? "grayscale opacity-50" : ""}`}
-                  onError={() => setImageError(true)}
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition">
-                  <ImageIcon className="w-10 h-10 sm:w-14 sm:h-14 mb-1" />
-                  <span className="text-[10px] sm:text-xs font-medium">
-                    {t.imgUnavailable}
-                  </span>
-                </div>
-              )}
+            {/* Product Image Area with High-Contrast Icon Pod */}
+            <div className="h-32 sm:h-40 md:h-44 overflow-hidden bg-gradient-to-b from-slate-100/90 to-slate-200/50 dark:from-slate-800/80 dark:to-slate-900/90 border-b border-slate-200/60 dark:border-slate-800 relative flex items-center justify-center p-2.5 sm:p-3">
+              {/* Subtle tech ambient glow */}
+              <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/10 pointer-events-none blur-xl"></div>
+
+              {/* Elevated high-contrast icon pod */}
+              <div className="relative w-full h-full max-w-[125px] sm:max-w-[155px] flex items-center justify-center bg-white dark:bg-white rounded-2xl p-2.5 sm:p-3 shadow-sm dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] ring-1 ring-slate-200/60 dark:ring-white/20 group-hover:scale-105 transition-all duration-300">
+                {product.imageUrl && !imageError ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={content.name}
+                    className={`object-contain max-h-full max-w-full transition-transform duration-300 ${product.unavailable ? "grayscale opacity-50" : ""}`}
+                    onError={() => setImageError(true)}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-blue-500 transition">
+                    <ImageIcon className="w-9 h-9 sm:w-11 sm:h-11 mb-1" />
+                    <span className="text-[10px] sm:text-xs font-medium">
+                      {t.imgUnavailable}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Content & Actions */}
@@ -2406,7 +2412,7 @@
                         {t.discount}
                       </div>
                     )}
-                    <div className="w-40 h-40 bg-white dark:bg-slate-700 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-600 flex items-center justify-center">
+                    <div className="w-40 h-40 bg-white dark:bg-white rounded-2xl p-4 shadow-md ring-1 ring-slate-200/60 dark:ring-white/20 flex items-center justify-center">
                       {product.imageUrl && !imageError ? (
                         <img
                           src={product.imageUrl}
@@ -2416,7 +2422,7 @@
                           loading="lazy"
                         />
                       ) : (
-                        <ImageIcon className="w-20 h-20 text-slate-300 dark:text-slate-500" />
+                        <ImageIcon className="w-20 h-20 text-slate-400" />
                       )}
                     </div>
                   </div>
@@ -5744,9 +5750,9 @@
                             <button
                               key={p.id}
                               onClick={() => openProductLink(p)}
-                              className="text-start bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-3 shadow-sm hover:shadow-md transition"
+                              className="text-start bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 shadow-sm hover:shadow-md transition"
                             >
-                              <div className="h-20 md:h-24 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-xl mb-3 p-2">
+                              <div className="h-20 md:h-24 flex items-center justify-center bg-white dark:bg-white rounded-xl mb-3 p-2 shadow-sm ring-1 ring-slate-100 dark:ring-white/20">
                                 {p.imageUrl ? (
                                   <img
                                     src={p.imageUrl}
@@ -5754,7 +5760,7 @@
                                     className="max-h-full object-contain"
                                   />
                                 ) : (
-                                  <ImageIcon className="text-slate-300" />
+                                  <ImageIcon className="text-slate-400" />
                                 )}
                               </div>
                               <p className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 min-h-[2.5rem]">
