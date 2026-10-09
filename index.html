@@ -754,51 +754,54 @@
       /* SLIDES_START */
       const DEFAULT_SLIDES = [
         {
-          id: "slide-productivity",
-          eyebrow: "حلول العمل والإبداع",
-          eyebrow_en: "WORK & CREATIVITY",
-          title: "كل أدوات إنتاجيتك في مكان واحد",
-          title_en: "Your productivity toolkit, all in one place",
-          subtitle:
-            "اشتراكات Microsoft وAdobe الأصلية بأسعار واضحة وضمان طوال مدة الاشتراك",
-          subtitle_en:
-            "Original Microsoft and Adobe subscriptions with clear pricing and full-term warranty",
-          cta: "استكشف برامج العمل",
-          cta_en: "Explore productivity apps",
-          imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-productivity.jpg?v=1",
-          productId: "",
-        },
-        {
           id: "slide-ai",
-          eyebrow: "ذكاء اصطناعي أقوى",
-          eyebrow_en: "PREMIUM AI TOOLS",
-          title: "حوّل أفكارك إلى إنجاز أسرع",
-          title_en: "Turn ideas into results, faster",
+          eyebrow: "🚀 أدوات المستقبل",
+          eyebrow_en: "FUTURE TOOLS & AI",
+          title: "أقوى اشتراكات الذكاء الاصطناعي بين يديك",
+          title_en: "Leading AI subscriptions at your fingertips",
           subtitle:
-            "اختر من أقوى اشتراكات الذكاء الاصطناعي للكتابة والبحث والتصميم",
+            "وفّر وقتك وضاعف إنتاجيتك مع ChatGPT Plus و Gemini Advanced و Midjourney بتفعيل رسمي وضمان كامل.",
           subtitle_en:
-            "Choose leading AI subscriptions for writing, research, and creative work",
-          cta: "تصفّح خدمات AI",
-          cta_en: "Browse AI services",
+            "Save time and multiply productivity with ChatGPT Plus, Gemini, and Midjourney with full warranty.",
+          cta: "تصفّح باقات AI",
+          cta_en: "Browse AI plans",
           imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-ai-tools.jpg?v=1",
+            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-ai-v2.jpg?v=2",
+          category: "AI",
           productId: "",
         },
         {
-          id: "slide-support",
-          eyebrow: "شراء بثقة",
-          eyebrow_en: "BUY WITH CONFIDENCE",
-          title: "تفعيل سريع ودعم مستمر",
-          title_en: "Fast activation. Support that stays",
+          id: "slide-productivity",
+          eyebrow: "🎨 للمصممين والمحترفين",
+          eyebrow_en: "CREATIVE & PRODUCTIVITY",
+          title: "Adobe Creative Cloud & Office 365 بأفضل سعر",
+          title_en: "Adobe Creative Cloud & Office 365 at best rates",
           subtitle:
-            "نراجع طلبك ونساعدك في التفعيل، مع متابعة حقيقية بعد الشراء",
+            "احصل على حزمة أدوبي الكاملة وبرامج أوفيس مع مساحة سحابية 1TB تعمل على كافة أجهزتك.",
           subtitle_en:
-            "We verify your order, help with activation, and support you after purchase",
-          cta: "اختر اشتراكك الآن",
-          cta_en: "Choose your subscription",
+            "Get the full Adobe Creative suite and Office 365 with 1TB cloud storage across all your devices.",
+          cta: "استكشف برامج العمل",
+          cta_en: "Explore work software",
           imageUrl:
-            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-support-care.jpg?v=1",
+            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-productivity-v2.jpg?v=2",
+          category: "Adobe",
+          productId: "",
+        },
+        {
+          id: "slide-offers",
+          eyebrow: "🔥 عروض محدودة",
+          eyebrow_en: "LIMITED TIME OFFERS",
+          title: "خصومات تصل إلى 40% مع تفعيل فوري",
+          title_en: "Up to 40% OFF with instant activation",
+          subtitle:
+            "رخص واشتراكات أصلية 100% مع ضمان استبدال فوري ودعم فني متواصل على مدار الساعة.",
+          subtitle_en:
+            "100% genuine licenses with immediate replacement warranty and 24/7 dedicated support.",
+          cta: "اطلب عرضك الآن",
+          cta_en: "Claim your offer",
+          imageUrl:
+            "https://raw.githubusercontent.com/Ahmedgaafar25/Tech-Services-Store/main/assets/slider-offers-v2.jpg?v=2",
+          action: "whatsapp",
           productId: "",
         },
       ];
@@ -4170,6 +4173,21 @@
         };
 
         const handleSlideClick = (slide) => {
+          if (slide.action === "whatsapp") {
+            openWhatsapp(
+              lang === "ar"
+                ? "مرحباً، أود الاستفسار وطلب العرض الحصري من السلايدر"
+                : "Hello, I want to inquire about the special slider offer",
+            );
+            return;
+          }
+          if (slide.category) {
+            setSelectedCategory(slide.category);
+            document
+              .getElementById("products")
+              ?.scrollIntoView({ behavior: "smooth" });
+            return;
+          }
           if (slide.productId) {
             const linked = products.find((p) => p.id === slide.productId);
             if (linked) {
